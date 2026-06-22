@@ -3,16 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Bombas - Modular</title>
+    <title>Simulador de Bombas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; }
-        canvas { display: block; width: 100vw; height: 100vh; }
     </style>
 </head>
-<body>
+<body class="h-screen w-screen flex flex-col md:flex-row">
 
-    <canvas id="simCanvas"></canvas>
+    <div class="w-full md:w-1/4 p-6 bg-slate-800 border-r border-slate-700 z-10 flex flex-col gap-6 shadow-xl">
+        <div>
+            <h1 class="text-2xl font-bold text-blue-400">Simulador de Bombas</h1>
+            <p class="text-slate-400 text-sm mt-1">Termodinámica y Fluidos</p>
+        </div>
+
+        <div>
+            <label class="block text-sm mb-2 text-slate-300">Tipo de Bomba</label>
+            <select id="pumpSelector" class="w-full p-2 bg-slate-900 border border-slate-600 rounded text-white focus:ring-blue-500">
+                <option value="centrifugal">Centrífuga (Dinámica)</option>
+                <option value="piston">Pistón (Despl. Positivo)</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="flex justify-between text-sm text-slate-300">
+                <span>Velocidad (RPM)</span> <span id="rpmValue" class="font-mono text-blue-300">1500</span>
+            </label>
+            <input type="range" id="rpmSlider" min="0" max="3000" value="1500" class="w-full mt-2 accent-blue-500">
+        </div>
+
+        <div>
+            <label class="flex justify-between text-sm text-slate-300">
+                <span>Viscosidad del fluido</span> <span id="visValue" class="font-mono text-blue-300">10</span>
+            </label>
+            <input type="range" id="visSlider" min="1" max="100" value="10" class="w-full mt-2 accent-blue-500">
+        </div>
+    </div>
+
+    <div class="flex-1 relative" id="canvasContainer">
+        <canvas id="simCanvas" class="absolute inset-0 w-full h-full"></canvas>
+    </div>
 
     <script type="module" src="./js/main.js"></script>
 
