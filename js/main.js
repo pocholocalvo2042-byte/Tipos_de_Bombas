@@ -1,15 +1,32 @@
 // /js/main.js
-import { PumpBase } from '../bombas/PumpBase.js';
+import { Centrifuga } from '../bombas/Centrifuga.js';
 
 const canvas = document.getElementById('simCanvas');
 const ctx = canvas.getContext('2d');
 
-// Ajustar el canvas al tamaño de la ventana
+// Ajustar el canvas al tamaño de la pantalla
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Instanciar la base (solo para probar que importa bien)
-const bombaPrueba = new PumpBase(canvas.width, canvas.height);
+// Instanciar la bomba centrífuga
+const bombaActiva = new Centrifuga(canvas.width, canvas.height);
 
-// Si ves este mensaje en la consola de tu navegador (F12), ¡la estructura está perfecta!
-console.log("Sistema inicializado. Instancia creada:", bombaPrueba);
+let time = 0;
+
+// El bucle de animación
+function animate() {
+    // 1. Limpiar el canvas en cada fotograma (Color fondo oscuro)
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    time++;
+    
+    // 2. Renderizar la bomba (pasando RPM=1500 y Viscosidad=10)
+    bombaActiva.render(ctx, time, 1500, 10);
+    
+    // 3. Repetir infinitamente
+    requestAnimationFrame(animate);
+}
+
+// Iniciar simulador
+animate();
