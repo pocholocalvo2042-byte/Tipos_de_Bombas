@@ -18,8 +18,10 @@ function resizeCanvas() {
     canvas.width = container.clientWidth;
     canvas.height = container.clientHeight;
     
-    // Recalcular el centro para todas las bombas instanciadas
+    // Recalcular el centro Y los límites para todas las bombas instanciadas
     Object.values(bombas).forEach(bomba => {
+        bomba.width = canvas.width;   // <-- LÍNEA NUEVA: Actualiza el límite de muerte X
+        bomba.height = canvas.height; // <-- LÍNEA NUEVA: Actualiza el límite de muerte Y
         bomba.cx = canvas.width / 2;
         bomba.cy = canvas.height / 2;
     });
