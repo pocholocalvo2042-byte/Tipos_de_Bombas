@@ -1,50 +1,2254 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulador de Bombas</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HydroSim Pro v2 — Simulador de Bombas Hidráulicas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap');
+
+    :root {
+      --bg-dark:    #0a0e17;
+      --bg-panel:   #111827;
+      --bg-card:    #1a2235;
+      --cyan:       #00d4ff;
+      --cyan-dim:   #0099bb;
+      --steel:      #4a5568;
+      --steel-light:#718096;
+      --amber:      #f59e0b;
+      --green:      #10b981;
+      --red:        #ef4444;
+      --text-main:  #e2e8f0;
+      --text-dim:   #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Rajdhani', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    header {
+      background: linear-gradient(90deg, #0a0e17 0%, #0f1a2e 50%, #0a0e17 100%);
+      border-bottom: 1px solid var(--cyan-dim);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header .logo-icon {
+      width: 40px; height: 40px;
+      background: var(--cyan);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; color: var(--bg-dark); font-weight: bold;
+    }
+    header h1 {
+      font-size: 1.5rem; font-weight: 700; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--cyan);
+    }
+    header p { font-size: 0.8rem; color: var(--text-dim); letter-spacing: 1px; }
+
+    .main-layout {
+      display: grid;
+      grid-template-columns: 270px 1fr 240px;
+      gap: 0;
+      height: calc(100vh - 64px);
+    }
+
+    .panel-controls {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--steel);
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 0.65rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--steel);
+      padding-bottom: 6px;
+    }
+
+    .pump-btn {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--steel);
+      border-radius: 6px;
+      color: var(--text-dim);
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 5px;
+    }
+    .pump-btn:hover { border-color: var(--cyan-dim); color: var(--text-main); }
+    .pump-btn.active {
+      border-color: var(--cyan);
+      background: rgba(0, 212, 255, 0.08);
+      color: var(--cyan);
+      box-shadow: 0 0 12px rgba(0,212,255,0.15);
+    }
+    .pump-btn .icon { font-size: 1.3rem; }
+
+    .slider-group { display: flex; flex-direction: column; gap: 14px; }
+    .slider-item label {
+      display: flex; justify-content: space-between;
+      font-size: 0.85rem; color: var(--text-dim);
+      margin-bottom: 6px;
+    }
+    .slider-item label span {
+      color: var(--amber); font-family: 'Share Tech Mono', monospace;
+      font-size: 0.9rem;
+    }
+    input[type=range] {
+      width: 100%; -webkit-appearance: none;
+      height: 4px; border-radius: 2px;
+      background: var(--steel);
+      outline: none; cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px rgba(0,212,255,0.6);
+      cursor: pointer;
+    }
+
+    .option-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.85rem; color: var(--text-dim);
+      cursor: pointer; padding: 6px 0;
+    }
+    .option-row input[type=checkbox] {
+      width: 16px; height: 16px; accent-color: var(--cyan);
+      cursor: pointer;
+    }
+
+    .canvas-wrapper {
+      background: var(--bg-dark);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    #mainCanvas {
+      display: block;
+      border: 1px solid var(--steel);
+      border-radius: 4px;
+      box-shadow: 0 0 40px rgba(0,212,255,0.05);
+      max-width: 100%;
+      aspect-ratio: 62 / 50;
+    }
+
+    .pump-title-overlay {
+      position: absolute;
+      top: 16px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,14,23,0.85);
+      border: 1px solid var(--steel);
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    .canvas-controls {
+      position: absolute;
+      bottom: 16px;
+      display: flex; gap: 10px;
+    }
+    .ctrl-btn {
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      border: 1px solid;
+      transition: all 0.2s;
+    }
+    .ctrl-btn.play {
+      background: rgba(16,185,129,0.15); border-color: var(--green);
+      color: var(--green);
+    }
+    .ctrl-btn.play:hover { background: rgba(16,185,129,0.3); }
+    .ctrl-btn.reset {
+      background: rgba(74,85,104,0.3); border-color: var(--steel);
+      color: var(--text-dim);
+    }
+    .ctrl-btn.reset:hover { border-color: var(--amber); color: var(--amber); }
+
+    .panel-telemetry {
+      background: var(--bg-panel);
+      border-left: 1px solid var(--steel);
+      padding: 20px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .tele-card {
+      background: var(--bg-card);
+      border: 1px solid var(--steel);
+      border-radius: 6px;
+      padding: 14px;
+    }
+    .tele-card .tele-label {
+      font-size: 0.65rem; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+    .tele-card .tele-value {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 1.6rem;
+      font-weight: normal;
+      color: var(--cyan);
+      line-height: 1;
+    }
+    .tele-card .tele-unit {
+      font-size: 0.8rem; color: var(--text-dim);
+      margin-left: 4px;
+    }
+    .tele-card .tele-sub {
+      font-size: 0.75rem; color: var(--text-dim);
+      margin-top: 4px;
+    }
+
+    .pressure-bar-wrap {
+      margin-top: 8px;
+      height: 6px;
+      background: var(--steel);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .pressure-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--cyan-dim), var(--cyan));
+      box-shadow: 0 0 8px var(--cyan);
+      transition: width 0.3s ease;
+    }
+
+    .gauge-wrap { display: flex; align-items: center; gap: 12px; margin-top: 6px; }
+    .gauge-svg { width: 56px; height: 56px; }
+
+    .valve-status {
+      display: flex; gap: 8px; margin-top: 8px;
+    }
+    .valve-pill {
+      flex: 1; text-align: center; padding: 4px 6px;
+      border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 1px; text-transform: uppercase;
+      transition: all 0.2s;
+    }
+    .valve-pill.open { background: rgba(16,185,129,0.2); color: var(--green); border: 1px solid var(--green); }
+    .valve-pill.closed { background: rgba(74,85,104,0.2); color: var(--steel-light); border: 1px solid var(--steel); }
+
+    .event-log {
+      background: var(--bg-card);
+      border: 1px solid var(--steel);
+      border-radius: 6px;
+      padding: 10px;
+      height: 120px;
+      overflow-y: auto;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .event-log .log-entry { color: var(--cyan-dim); }
+    .event-log .log-entry.warn { color: var(--amber); }
+
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: var(--steel); border-radius: 2px; }
+
+    @media (max-width: 900px) {
+      header { padding: 8px 14px; gap: 10px; }
+      header .logo-icon { width: 30px; height: 30px; font-size: 13px; }
+      header h1 { font-size: 1rem; letter-spacing: 1px; }
+      header p  { display: none; }
+
+      .main-layout { grid-template-columns: 1fr; height: auto; }
+
+      .panel-controls {
+        border-right: none;
+        border-bottom: 1px solid var(--steel);
+        padding: 12px; gap: 12px;
+      }
+
+      .pump-selector {
+        display: flex; flex-direction: row;
+        flex-wrap: wrap; gap: 5px;
+        align-items: stretch;
+      }
+      .pump-selector > .section-label { display: none; }
+      .pump-selector .pump-btn {
+        flex: 1 1 calc(33% - 5px);
+        min-width: 80px;
+        padding: 7px 4px;
+        font-size: 0.72rem;
+        letter-spacing: 0;
+        margin-bottom: 0;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        text-align: center;
+      }
+      .pump-selector .pump-btn .icon { font-size: 1.1rem; }
+
+      .slider-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; }
+
+      .vis-section { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+      .vis-section > .section-label { grid-column: 1 / -1; }
+      .vis-section .option-row { font-size: 0.8rem; padding: 4px 0; }
+
+      .desc-section #pump-description {
+        font-size: 0.78rem; line-height: 1.5;
+        max-height: 72px; overflow: hidden;
+        -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+                mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+      }
+
+      .canvas-wrapper { padding: 44px 8px 50px; min-height: auto; overflow: visible; }
+      #mainCanvas { max-width: 100% !important; height: auto !important; aspect-ratio: 62 / 50; }
+      .pump-title-overlay { font-size: 0.65rem; padding: 5px 14px; max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
+      .ctrl-btn { padding: 7px 14px; font-size: 0.8rem; }
+
+      .panel-telemetry {
+        border-left: none; border-top: 1px solid var(--steel);
+        padding: 12px;
+        display: grid; grid-template-columns: 1fr 1fr;
+        gap: 8px; align-items: start;
+      }
+      .panel-telemetry > .section-label { grid-column: 1 / -1; margin-bottom: 0; }
+      .tele-card { padding: 10px 10px 8px; }
+      .tele-card .tele-label { font-size: 0.58rem; letter-spacing: 1.5px; margin-bottom: 5px; }
+      .tele-card .tele-value { font-size: 1.2rem; }
+      .tele-card .tele-sub { font-size: 0.65rem; margin-top: 3px; }
+      .gauge-svg { width: 44px; height: 44px; }
+      .gauge-wrap { gap: 8px; }
+      .gauge-wrap > div { font-size: 0.68rem; }
+      #valve-card { grid-column: 1 / -1; }
+      .panel-telemetry > div:last-child { grid-column: 1 / -1; }
+      .event-log { height: 80px; font-size: 0.65rem; }
+      .section-label { font-size: 0.6rem; letter-spacing: 2px; }
+    }
+
+    @media (max-width: 420px) {
+      .pump-selector .pump-btn { font-size: 0.65rem; padding: 6px 2px; }
+      .tele-card .tele-value   { font-size: 1.05rem; }
+      .slider-item label       { font-size: 0.78rem; }
+    }
+  </style>
 </head>
-<body class="h-screen w-screen flex flex-col md:flex-row">
+<body>
 
-    <div class="w-full md:w-1/4 p-6 bg-slate-800 border-r border-slate-700 z-10 flex flex-col gap-6 shadow-xl">
-        <div>
-            <h1 class="text-2xl font-bold text-blue-400">Simulador de Bombas</h1>
-            <p class="text-slate-400 text-sm mt-1">Termodinámica y Fluidos</p>
-        </div>
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header>
+  <div class="logo-icon">⚙</div>
+  <div>
+    <h1>HydroSim Pro</h1>
+    <p>Simulador Interactivo de Bombas Hidráulicas — Termodinámica &amp; Mecánica de Fluidos · v2.0</p>
+  </div>
+</header>
 
-        <div>
-            <label class="block text-sm mb-2 text-slate-300">Tipo de Bomba</label>
-            <select id="pumpSelector" class="w-full p-2 bg-slate-900 border border-slate-600 rounded text-white focus:ring-blue-500">
-                <option value="centrifugal">Centrífuga (Dinámica)</option>
-                <option value="piston">Pistón (Despl. Positivo)</option>
-            </select>
-        </div>
+<!-- ═══════════════════ LAYOUT ═══════════════════ -->
+<div class="main-layout">
 
-        <div>
-            <label class="flex justify-between text-sm text-slate-300">
-                <span>Velocidad (RPM)</span> <span id="rpmValue" class="font-mono text-blue-300">1500</span>
-            </label>
-            <input type="range" id="rpmSlider" min="0" max="3000" value="1500" class="w-full mt-2 accent-blue-500">
-        </div>
+  <!-- PANEL IZQUIERDO -->
+  <aside class="panel-controls">
 
-        <div>
-            <label class="flex justify-between text-sm text-slate-300">
-                <span>Viscosidad del fluido</span> <span id="visValue" class="font-mono text-blue-300">10</span>
-            </label>
-            <input type="range" id="visSlider" min="1" max="100" value="10" class="w-full mt-2 accent-blue-500">
-        </div>
+    <div class="pump-selector">
+      <div class="section-label">Tipo de Bomba</div>
+      <button class="pump-btn active" onclick="selectPump('centrifugal')" id="btn-centrifugal">
+        <span class="icon">🌀</span> Centrífuga
+      </button>
+      <button class="pump-btn" onclick="selectPump('piston')" id="btn-piston">
+        <span class="icon">🔩</span> Pistón
+      </button>
+      <button class="pump-btn" onclick="selectPump('gear')" id="btn-gear">
+        <span class="icon">⚙️</span> Engranajes
+      </button>
+      <button class="pump-btn" onclick="selectPump('axial')" id="btn-axial">
+        <span class="icon">🌬️</span> Flujo Axial
+      </button>
+      <button class="pump-btn" onclick="selectPump('mixed')" id="btn-mixed">
+        <span class="icon">🔀</span> Flujo Mixto
+      </button>
+      <button class="pump-btn" onclick="selectPump('diaphragm')" id="btn-diaphragm">
+        <span class="icon">💧</span> Membrana
+      </button>
     </div>
 
-    <div class="flex-1 relative" id="canvasContainer">
-        <canvas id="simCanvas" class="absolute inset-0 w-full h-full"></canvas>
+    <div>
+      <div class="section-label">Parámetros Operativos</div>
+      <div class="slider-group">
+        <div class="slider-item">
+          <label>Velocidad (RPM) <span id="lbl-rpm">1500</span></label>
+          <input type="range" id="sl-rpm" min="300" max="3000" value="1500" step="50" oninput="updateParams()">
+        </div>
+        <div class="slider-item">
+          <label>Viscosidad (cP) <span id="lbl-visc">1.0</span></label>
+          <input type="range" id="sl-visc" min="1" max="100" value="1" step="1" oninput="updateParams()">
+        </div>
+        <div class="slider-item">
+          <label>Carga Succión (m) <span id="lbl-suction">3.0</span></label>
+          <input type="range" id="sl-suction" min="0" max="8" value="3" step="0.5" oninput="updateParams()">
+        </div>
+        <div class="slider-item">
+          <label>Diámetro Tubería (mm) <span id="lbl-diam">50</span></label>
+          <input type="range" id="sl-diam" min="20" max="200" value="50" step="5" oninput="updateParams()">
+        </div>
+      </div>
     </div>
 
-    <script type="module" src="./js/main.js"></script>
+    <div class="vis-section">
+      <div class="section-label">Visualización</div>
+      <label class="option-row">
+        <input type="checkbox" id="opt-particles" checked onchange="updateParams()"> Mostrar partículas
+      </label>
+      <label class="option-row">
+        <input type="checkbox" id="opt-vectors" onchange="updateParams()"> Vectores de velocidad
+      </label>
+      <label class="option-row">
+        <input type="checkbox" id="opt-pressure" checked onchange="updateParams()"> Mapa de presión
+      </label>
+      <label class="option-row">
+        <input type="checkbox" id="opt-labels" checked onchange="updateParams()"> Etiquetas
+      </label>
+    </div>
 
+    <div class="desc-section">
+      <div class="section-label">Principio de Operación</div>
+      <div id="pump-description" style="font-size:0.82rem; color:var(--text-dim); line-height:1.6">
+        La bomba centrífuga convierte energía mecánica de rotación en energía cinética del fluido mediante un rodete. La fuerza centrífuga empuja el líquido hacia la voluta, donde la energía cinética se transforma en presión estática.
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- CANVAS CENTRAL -->
+  <main class="canvas-wrapper">
+    <div class="pump-title-overlay" id="pump-title">BOMBA CENTRÍFUGA — EN OPERACIÓN</div>
+    <canvas id="mainCanvas" width="620" height="500"></canvas>
+    <div class="canvas-controls">
+      <button class="ctrl-btn play" id="btn-play" onclick="togglePlay()">⏸ PAUSAR</button>
+      <button class="ctrl-btn reset" onclick="resetSim()">↺ REINICIAR</button>
+    </div>
+  </main>
+
+  <!-- PANEL DERECHO: Telemetría -->
+  <aside class="panel-telemetry">
+
+    <div class="section-label">Telemetría en Tiempo Real</div>
+
+    <div class="tele-card">
+      <div class="tele-label">Caudal Volumétrico</div>
+      <div>
+        <span class="tele-value" id="tele-flow">0.00</span>
+        <span class="tele-unit">m³/h</span>
+      </div>
+      <div class="tele-sub" id="tele-flow-sub">↑ Calculado por área × velocidad</div>
+    </div>
+
+    <div class="tele-card">
+      <div class="tele-label">Presión de Descarga</div>
+      <div>
+        <span class="tele-value" id="tele-pressure">0.0</span>
+        <span class="tele-unit">bar</span>
+      </div>
+      <div class="pressure-bar-wrap">
+        <div class="pressure-bar-fill" id="pressure-bar" style="width:0%"></div>
+      </div>
+      <div class="tele-sub">Máx. simulado: 10 bar</div>
+    </div>
+
+    <div class="tele-card">
+      <div class="tele-label">Potencia Mecánica</div>
+      <div>
+        <span class="tele-value" id="tele-power">0.0</span>
+        <span class="tele-unit">kW</span>
+      </div>
+      <div class="tele-sub" id="tele-power-sub">P = ρ·g·H·Q / η</div>
+    </div>
+
+    <div class="tele-card">
+      <div class="tele-label">Eficiencia Global (η)</div>
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 56 56">
+          <circle cx="28" cy="28" r="22" fill="none" stroke="#1a2235" stroke-width="6"/>
+          <circle id="gauge-circle" cx="28" cy="28" r="22" fill="none"
+                  stroke="#00d4ff" stroke-width="6"
+                  stroke-dasharray="138.2" stroke-dashoffset="138.2"
+                  stroke-linecap="round"
+                  transform="rotate(-90 28 28)"
+                  style="transition: stroke-dashoffset 0.4s ease"/>
+          <text x="28" y="33" text-anchor="middle"
+                font-family="'Share Tech Mono',monospace" font-size="10"
+                fill="#e2e8f0" id="gauge-text">0%</text>
+        </svg>
+        <div>
+          <div style="font-size:0.75rem;color:var(--text-dim)">
+            Incluye pérdidas<br>volumétricas y mecánicas
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Válvulas (pistón y membrana) -->
+    <div class="tele-card" id="valve-card" style="display:none">
+      <div class="tele-label">Estado de Válvulas</div>
+      <div class="valve-status">
+        <div class="valve-pill closed" id="valve-inlet">ADMIT.</div>
+        <div class="valve-pill closed" id="valve-outlet">DESCARGA</div>
+      </div>
+      <div class="tele-sub" style="margin-top:8px" id="piston-phase">Fase: —</div>
+    </div>
+
+    <div class="tele-card">
+      <div class="tele-label">NPSH Disponible</div>
+      <div>
+        <span class="tele-value" id="tele-npsh" style="font-size:1.2rem">0.00</span>
+        <span class="tele-unit">m</span>
+      </div>
+      <div class="tele-sub" id="tele-npsh-warn" style="color:var(--green)">✓ Sin cavitación</div>
+    </div>
+
+    <div>
+      <div class="tele-label" style="font-size:0.65rem;letter-spacing:2px;text-transform:uppercase;color:var(--cyan);margin-bottom:6px;border-bottom:1px solid var(--steel);padding-bottom:4px">
+        Registro de Eventos
+      </div>
+      <div class="event-log" id="event-log">
+        <div class="log-entry">[00:00] Sistema iniciado</div>
+        <div class="log-entry">[00:00] Bomba centrífuga cargada</div>
+        <div class="log-entry">[00:00] Esperando arranque...</div>
+      </div>
+    </div>
+
+  </aside>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT — HYDROSIM PRO v2
+     1. Variables globales y estado
+     2. Sistema de partículas
+     3A. Bomba Centrífuga
+     3B. Bomba de Pistón
+     3C. Bomba de Engranajes  (mejorada v2)
+     3D. Bomba de Flujo Axial (NUEVA)
+     3E. Bomba de Flujo Mixto (NUEVA)
+     3F. Bomba de Membrana    (NUEVA)
+     4.  Utilidades de renderizado
+     5.  Telemetría
+     6.  Loop principal
+     7.  UI / Eventos
+════════════════════════════════════════════════════ -->
+<script>
+"use strict";
+
+/* ─────────────────────────────────────────────
+   1. VARIABLES GLOBALES
+───────────────────────────────────────────── */
+
+const canvas = document.getElementById('mainCanvas');
+const ctx    = canvas.getContext('2d');
+
+const CX = canvas.width  / 2;   // 310
+const CY = canvas.height / 2;   // 250
+
+const SIM = {
+  running:   true,
+  pumpType: 'centrifugal',
+  time:      0,
+  frameTime: 0,
+
+  rpm:        1500,
+  viscosity:  1.0,
+  suction:    3.0,
+  diameter:   50,
+
+  showParticles: true,
+  showVectors:   false,
+  showPressure:  true,
+  showLabels:    true,
+
+  angle:      0,
+  pistonPos:  0,
+  gear1Angle: 0,
+  gear2Angle: 0,
+};
+
+const MAX_PARTICLES = 200;
+let particles = [];
+
+const COLORS = {
+  suction:   '#1e90ff',
+  chamber:   '#00bfff',
+  discharge: '#00ffee',
+  fast:      '#ffffff',
+};
+
+/* ─────────────────────────────────────────────
+   2. SISTEMA DE PARTÍCULAS
+───────────────────────────────────────────── */
+
+function createParticle(x, y, vx, vy, zone = 'suction') {
+  return {
+    x, y, vx, vy, zone,
+    life:  1.0,
+    alpha: 0.7 + Math.random() * 0.3,
+    r:     2 + Math.random() * 2,
+  };
+}
+
+function updateParticles(dt) {
+  const damping = 1.0 - (SIM.viscosity / 100) * 0.3 * dt * 10;
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt * 60;
+    p.y += p.vy * dt * 60;
+    p.vx *= damping;
+    p.vy *= damping;
+    p.life -= dt * 0.35;
+    if (p.life <= 0 ||
+        p.x < -20 || p.x > canvas.width  + 20 ||
+        p.y < -20 || p.y > canvas.height + 20) {
+      particles.splice(i, 1);
+    }
+  }
+}
+
+function drawParticles() {
+  if (!SIM.showParticles) return;
+  for (const p of particles) {
+    const color = COLORS[p.zone] || COLORS.suction;
+    ctx.save();
+    ctx.globalAlpha = p.alpha * p.life;
+    if (p.zone === 'discharge') {
+      ctx.shadowColor = COLORS.discharge;
+      ctx.shadowBlur  = 6;
+    }
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.restore();
+
+    if (SIM.showVectors) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,100,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + p.vx * 8, p.y + p.vy * 8);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────
+   3A. BOMBA CENTRÍFUGA
+───────────────────────────────────────────── */
+
+const CENTRIFUGAL = {
+  impellerR: 90,
+  numBlades: 6,
+  volutaR:   130,
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const speedFactor = SIM.rpm / 1500;
+    for (let i = 0; i < 2; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist  = Math.random() * 15;
+      const x = CX + Math.cos(angle) * dist;
+      const y = CY + Math.sin(angle) * dist;
+      const vx = Math.cos(angle) * 0.3 * speedFactor;
+      const vy = Math.sin(angle) * 0.3 * speedFactor;
+      particles.push(createParticle(x, y, vx, vy, 'suction'));
+    }
+    if (Math.random() < 0.4 * speedFactor) {
+      const exitX = CX + CENTRIFUGAL.volutaR + 10;
+      const exitY = CY - 40 + (Math.random() - 0.5) * 20;
+      particles.push(createParticle(exitX, exitY, 2.5 * speedFactor, -0.3 * speedFactor, 'discharge'));
+    }
+  },
+
+  updatePhysics(dt) {
+    const omega = (SIM.rpm * 2 * Math.PI) / 60;
+    const speedFactor = SIM.rpm / 1500;
+    for (const p of particles) {
+      const dx = p.x - CX;
+      const dy = p.y - CY;
+      const r  = Math.sqrt(dx * dx + dy * dy);
+      if (r < CENTRIFUGAL.volutaR && r > 5) {
+        const radialAcc  = omega * omega * r * 0.0003;
+        const tangential = omega * r * 0.0008;
+        const nx = dx / r; const ny = dy / r;
+        const tx = -ny;    const ty =  nx;
+        p.vx += (nx * radialAcc + tx * tangential) * dt * speedFactor;
+        p.vy += (ny * radialAcc + ty * tangential) * dt * speedFactor;
+        if (r < 30)       p.zone = 'suction';
+        else if (r < 80)  p.zone = 'chamber';
+        else               p.zone = 'discharge';
+      } else if (r >= CENTRIFUGAL.volutaR) {
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        p.vx += 0.04 * speedFactor;
+        p.vy -= 0.015 * speedFactor;
+        p.zone = 'discharge';
+      }
+    }
+  },
+
+  draw() {
+    if (SIM.showPressure) {
+      const grad = ctx.createRadialGradient(CX, CY, 10, CX, CY, CENTRIFUGAL.volutaR);
+      grad.addColorStop(0,   'rgba(30,50,120,0.4)');
+      grad.addColorStop(0.5, 'rgba(0,100,180,0.3)');
+      grad.addColorStop(1,   'rgba(0,200,220,0.2)');
+      ctx.beginPath();
+      ctx.arc(CX, CY, CENTRIFUGAL.volutaR, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.strokeStyle = '#4a7aa8';
+    ctx.lineWidth   = 3;
+    ctx.fillStyle   = 'rgba(20,40,80,0.7)';
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI * 2; a += 0.05) {
+      const r = CENTRIFUGAL.volutaR + (a / (Math.PI * 2)) * 25;
+      const x = CX + Math.cos(a - Math.PI / 2) * r;
+      const y = CY + Math.sin(a - Math.PI / 2) * r;
+      if (a === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(CX, CY);
+    ctx.rotate(SIM.angle);
+
+    ctx.beginPath();
+    ctx.arc(0, 0, CENTRIFUGAL.impellerR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(30,50,90,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = '#2a6090';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    for (let b = 0; b < CENTRIFUGAL.numBlades; b++) {
+      const bladeAngle = (b / CENTRIFUGAL.numBlades) * Math.PI * 2;
+      ctx.save();
+      ctx.rotate(bladeAngle);
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.bezierCurveTo(40, -20, CENTRIFUGAL.impellerR - 15, -30, CENTRIFUGAL.impellerR - 5, -10);
+      ctx.strokeStyle = '#5dade2';
+      ctx.lineWidth   = 4;
+      ctx.lineCap     = 'round';
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(15, 0);
+      ctx.bezierCurveTo(40, -20, CENTRIFUGAL.impellerR - 15, -30, CENTRIFUGAL.impellerR - 5, -10);
+      ctx.strokeStyle = 'rgba(150,230,255,0.4)';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fillStyle = '#2c3e50';
+    ctx.fill();
+    ctx.strokeStyle = '#5dade2';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#aaa';
+    ctx.fill();
+    ctx.restore();
+
+    this.drawPipes();
+    if (SIM.showLabels) this.drawLabels();
+  },
+
+  drawPipes() {
+    ctx.save();
+    ctx.lineWidth   = 20; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(30, CY);
+    ctx.lineTo(CX - CENTRIFUGAL.impellerR + 20, CY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(CX + CENTRIFUGAL.volutaR + 5, CY - 50);
+    ctx.lineTo(canvas.width - 10, CY - 50);
+    ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(30, CY);
+    ctx.lineTo(CX - CENTRIFUGAL.impellerR + 20, CY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(CX + CENTRIFUGAL.volutaR + 5, CY - 50);
+    ctx.lineTo(canvas.width - 10, CY - 50);
+    ctx.stroke();
+    ctx.restore();
+    drawArrow(80, CY, 160, CY, '#1e90ff', 'SUCCIÓN (P baja)');
+    drawArrow(CX + CENTRIFUGAL.volutaR + 30, CY - 50, canvas.width - 30, CY - 50, '#00ffee', 'DESCARGA (P alta)');
+  },
+
+  drawLabels() {
+    labelText('Ojo del Rodete\n(Mínima presión)', CX, CY + 20,       '#88ccff');
+    labelText('Rodete / Impeler',                  CX + 60, CY - 70,  '#88ccff');
+    labelText('Voluta',                            CX - 30, CY - 140, '#88ccff');
+    labelText('Fuerza\nCentrífuga →',              CX + 95, CY + 30,  '#ffcc44');
+  },
+};
+
+/* ─────────────────────────────────────────────
+   3B. BOMBA DE PISTÓN / RECÍPROCA
+───────────────────────────────────────────── */
+
+const PISTON = {
+  cylW:  90,
+  cylH: 160,
+  cylX: CX - 45,
+  cylY: CY - 80,
+  pistonH: 30,
+
+  inletOpen:  false,
+  outletOpen: false,
+  phase: 'suction',
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const speedFactor = SIM.rpm / 1500;
+    const pistonY = this.getPistonY();
+
+    if (this.phase === 'suction') {
+      if (Math.random() < 0.3 * speedFactor) {
+        const x = this.cylX + 20 + Math.random() * (this.cylW - 40);
+        particles.push(createParticle(x, this.cylY + this.cylH + 5, (Math.random() - 0.5) * 0.5, -1.5 * speedFactor, 'suction'));
+      }
+    } else {
+      if (Math.random() < 0.5 * speedFactor) {
+        const x = this.cylX + 20 + Math.random() * (this.cylW - 40);
+        particles.push(createParticle(x, this.cylY - 5, (Math.random() - 0.5) * 1.5, -3 * speedFactor, 'discharge'));
+      }
+    }
+
+    for (const p of particles) {
+      if (p.x > this.cylX && p.x < this.cylX + this.cylW &&
+          p.y > this.cylY && p.y < pistonY) {
+        p.zone = 'chamber';
+        if (this.phase === 'compression') p.vy -= 0.05 * speedFactor;
+      }
+    }
+  },
+
+  getPistonY() {
+    const stroke = this.cylH - this.pistonH - 10;
+    return this.cylY + 5 + SIM.pistonPos * stroke;
+  },
+
+  updatePhysics(dt) {
+    const speedFactor = SIM.rpm / 1500;
+    SIM.pistonPos += dt * speedFactor * 0.8;
+    if (SIM.pistonPos >= 1) SIM.pistonPos -= 1;
+
+    if (SIM.pistonPos < 0.5) {
+      this.phase = 'compression'; this.inletOpen = false; this.outletOpen = true;
+    } else {
+      this.phase = 'suction'; this.inletOpen = true; this.outletOpen = false;
+    }
+
+    document.getElementById('valve-inlet').className  = 'valve-pill ' + (this.inletOpen  ? 'open' : 'closed');
+    document.getElementById('valve-outlet').className = 'valve-pill ' + (this.outletOpen ? 'open' : 'closed');
+    document.getElementById('piston-phase').textContent =
+      'Fase: ' + (this.phase === 'compression' ? '🔴 Compresión' : '🔵 Succión');
+  },
+
+  draw() {
+    const pistonY = this.getPistonY();
+
+    ctx.save();
+    if (SIM.showPressure) {
+      const pressureAlpha = this.phase === 'compression' ? 0.4 : 0.1;
+      ctx.fillStyle = `rgba(0, 180, 220, ${pressureAlpha})`;
+      ctx.fillRect(this.cylX, this.cylY, this.cylW, pistonY - this.cylY);
+    }
+
+    ctx.strokeStyle = '#4a7aa8'; ctx.lineWidth = 4;
+    ctx.fillStyle   = 'rgba(15,30,60,0.9)';
+    ctx.fillRect(this.cylX, this.cylY, this.cylW, this.cylH);
+    ctx.strokeRect(this.cylX, this.cylY, this.cylW, this.cylH);
+
+    const pistonGrad = ctx.createLinearGradient(this.cylX, pistonY, this.cylX + this.cylW, pistonY);
+    pistonGrad.addColorStop(0, '#2c5282');
+    pistonGrad.addColorStop(0.5, '#63b3ed');
+    pistonGrad.addColorStop(1, '#2c5282');
+    ctx.fillStyle = pistonGrad; ctx.strokeStyle = '#90cdf4'; ctx.lineWidth = 2;
+    ctx.fillRect(this.cylX, pistonY, this.cylW, this.pistonH);
+    ctx.strokeRect(this.cylX, pistonY, this.cylW, this.pistonH);
+
+    for (const dy of [8, 16, 24]) {
+      ctx.beginPath();
+      ctx.moveTo(this.cylX, pistonY + dy);
+      ctx.lineTo(this.cylX + this.cylW, pistonY + dy);
+      ctx.strokeStyle = 'rgba(150,200,255,0.5)'; ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    const rodTop = pistonY + this.pistonH;
+    ctx.fillStyle = '#63b3ed';
+    ctx.fillRect(this.cylX + this.cylW / 2 - 8, rodTop, 16, this.cylH - rodTop + this.cylY + 20);
+
+    const crankCX = CX; const crankCY = this.cylY + this.cylH + 50; const crankR = 35;
+    const crankAngle = SIM.pistonPos * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.arc(crankCX, crankCY, crankR, 0, Math.PI * 2);
+    ctx.strokeStyle = '#2c5282'; ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(20,40,80,0.8)';
+    ctx.fill(); ctx.stroke();
+
+    const pinX = crankCX + Math.cos(crankAngle) * crankR;
+    const pinY = crankCY + Math.sin(crankAngle) * crankR;
+    ctx.beginPath(); ctx.arc(pinX, pinY, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#63b3ed'; ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(pinX, pinY);
+    ctx.lineTo(this.cylX + this.cylW / 2, rodTop + 10);
+    ctx.strokeStyle = '#4299e1'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+
+    this.drawValves(pistonY);
+    this.drawPipes();
+    if (SIM.showLabels) this.drawLabels(pistonY);
+  },
+
+  drawValves(pistonY) {
+    const inletX = this.cylX + this.cylW / 2;
+    this.drawValve(inletX - 20, this.cylY + this.cylH - 9, this.inletOpen, 'inlet');
+    this.drawValve(inletX - 20, this.cylY - 11, this.outletOpen, 'outlet');
+  },
+
+  drawValve(x, y, isOpen, type) {
+    ctx.save();
+    const color  = isOpen ? '#10b981' : '#ef4444';
+    const offset = isOpen ? 8 : 0;
+    ctx.fillStyle = 'rgba(20,40,80,0.9)'; ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.fillRect(x, y, 40, 20); ctx.strokeRect(x, y, 40, 20);
+    ctx.fillStyle = color;
+    const diskOffset = type === 'outlet' ? -offset : offset;
+    ctx.fillRect(x + 5, y + 5 + diskOffset, 30, 10);
+    ctx.beginPath(); ctx.arc(x + 50, y + 10, 5, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = isOpen ? 10 : 0; ctx.fill();
+    ctx.restore();
+  },
+
+  drawPipes() {
+    ctx.save();
+    ctx.lineWidth = 20; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(this.cylX + this.cylW / 2, this.cylY + this.cylH + 30);
+    ctx.lineTo(this.cylX + this.cylW / 2, canvas.height - 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.cylX + this.cylW / 2, this.cylY - 30);
+    ctx.lineTo(this.cylX + this.cylW / 2, 10);
+    ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(this.cylX + this.cylW / 2, this.cylY + this.cylH + 30);
+    ctx.lineTo(this.cylX + this.cylW / 2, canvas.height - 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.cylX + this.cylW / 2, this.cylY - 30);
+    ctx.lineTo(this.cylX + this.cylW / 2, 10);
+    ctx.stroke();
+    ctx.restore();
+    drawArrow(CX, canvas.height - 20, CX, this.cylY + this.cylH + 35, '#1e90ff', 'SUCCIÓN');
+    drawArrow(CX, this.cylY - 35, CX, 15, '#00ffee', 'DESCARGA');
+  },
+
+  drawLabels(pistonY) {
+    labelText('Cámara de\ncompresión',       this.cylX - 80, (this.cylY + pistonY) / 2, '#88ccff');
+    labelText('Pistón',                       this.cylX - 60, pistonY + 15,              '#88ccff');
+    labelText('Vástago',                      this.cylX - 60, pistonY + 60,              '#88ccff');
+    labelText('Cigüeñal',                     CX + 60, this.cylY + this.cylH + 50,       '#88ccff');
+    labelText('Válvula\nadmisión',            this.cylX + this.cylW + 10, this.cylY + this.cylH - 5, '#ffcc44');
+    labelText('Válvula\ndescarga',            this.cylX + this.cylW + 10, this.cylY - 10,            '#ffcc44');
+  },
+};
+
+/* ─────────────────────────────────────────────
+   3C. BOMBA DE ENGRANAJES  (mejorada v2)
+   Mejoras:
+   - Dientes más definidos (toothH 14, tw 0.28)
+   - Highlights en la cara de cada diente
+   - Partículas confinadas al borde exterior de la carcasa
+   - Zona de engrane central bloqueada (fluido NO pasa por el centro)
+───────────────────────────────────────────── */
+
+const GEAR = {
+  gearR:      70,
+  numTeeth:   12,
+  toothH:     14,   // v2: +2px para dientes más definidos
+  centerDist: 72,
+
+  get g1x() { return CX - this.centerDist; },
+  get g1y() { return CY; },
+  get g2x() { return CX + this.centerDist; },
+  get g2y() { return CY; },
+
+  // Pre-compute housing bounds (used in updatePhysics)
+  housingBounds() {
+    return {
+      left:   this.g1x - this.gearR - this.toothH - 12,
+      right:  this.g2x + this.gearR + this.toothH + 12,
+      top:    CY - this.gearR - this.toothH - 14,
+      bottom: CY + this.gearR + this.toothH + 14,
+    };
+  },
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const sf = SIM.rpm / 1500;
+
+    // Emite partículas por el camino SUPERIOR (sobre g1)
+    if (Math.random() < 0.3 * sf) {
+      particles.push(createParticle(
+        this.g1x - this.gearR - 5,
+        CY - 25 - Math.random() * 35,
+        0.9 * sf, -0.15 * sf, 'suction'
+      ));
+    }
+    // Emite partículas por el camino INFERIOR (bajo g2)
+    if (Math.random() < 0.3 * sf) {
+      particles.push(createParticle(
+        this.g1x - this.gearR - 5,
+        CY + 25 + Math.random() * 35,
+        0.9 * sf, 0.15 * sf, 'suction'
+      ));
+    }
+    // Descarga: lado derecho
+    if (Math.random() < 0.35 * sf) {
+      particles.push(createParticle(
+        this.g2x + this.gearR + 5,
+        CY + (Math.random() - 0.5) * 50,
+        2.5 * sf, (Math.random() - 0.5) * 0.2, 'discharge'
+      ));
+    }
+  },
+
+  updatePhysics(dt) {
+    const omega = (SIM.rpm * 2 * Math.PI) / 60;
+    const sf    = SIM.rpm / 1500;
+    const hb    = this.housingBounds();
+
+    for (const p of particles) {
+      const dx1 = p.x - this.g1x, dy1 = p.y - this.g1y;
+      const r1  = Math.sqrt(dx1*dx1 + dy1*dy1);
+      const dx2 = p.x - this.g2x, dy2 = p.y - this.g2y;
+      const r2  = Math.sqrt(dx2*dx2 + dy2*dy2);
+
+      if (r1 < this.gearR + 22 && r1 > this.gearR - 10) {
+        const tgX = dy1 / r1, tgY = -dx1 / r1;  // g1 gira antihorario
+        p.vx += tgX * omega * 0.0012 * sf;
+        p.vy += tgY * omega * 0.0012 * sf;
+        p.zone = 'chamber';
+      }
+      if (r2 < this.gearR + 22 && r2 > this.gearR - 10) {
+        const tgX = -dy2 / r2, tgY = dx2 / r2;  // g2 gira horario
+        p.vx += tgX * omega * 0.0012 * sf;
+        p.vy += tgY * omega * 0.0012 * sf;
+        p.zone = 'chamber';
+      }
+
+      // ── ZONA DE ENGRANE BLOQUEADA ──
+      // El fluido NO puede atravesar el centro donde los dientes se cruzan.
+      // Bloqueo en la franja central X ≈ [CX-16, CX+16]
+      const meshHalfW = 16;
+      if (Math.abs(p.x - CX) < meshHalfW && Math.abs(p.y - CY) < this.gearR) {
+        // Expulsar hacia arriba o abajo según posición
+        const pushDir = (p.y < CY) ? -1 : 1;
+        p.vy += pushDir * 1.0 * sf;
+        // Teletransportar fuera de la zona de colisión
+        p.y = CY + pushDir * (this.gearR + 5);
+        p.zone = 'chamber';
+      }
+
+      // ── CONFINAMIENTO A LA CARCASA ──
+      // Las partículas no salen del housing; rebotan contra las paredes
+      if (p.y < hb.top + 6)    p.vy += 0.5 * sf;
+      if (p.y > hb.bottom - 6) p.vy -= 0.5 * sf;
+      if (p.x < hb.left + 4)   p.vx += 0.3 * sf;
+      if (p.x > hb.right - 4)  p.vx -= 0.1;
+
+      // Clasificar zonas de presión
+      if (p.x < this.g1x)      p.zone = 'suction';
+      else if (p.x > this.g2x) p.zone = 'discharge';
+    }
+  },
+
+  /**
+   * Dibuja un engranaje con perfil trapezoidal mejorado.
+   * tw=0.28 → dientes más estrechos y mejor definidos.
+   * Highlights en la cara frontal de cada diente.
+   */
+  drawGear(cx, cy, angle, clockwise) {
+    const R  = this.gearR;
+    const Rt = R + this.toothH;          // cresta
+    const Rr = R - this.toothH * 0.55;  // raíz
+    const n  = this.numTeeth;
+    const aStep = (Math.PI * 2) / n;
+    const tw = 0.28;   // v2: 0.35 → 0.28 (dientes más definidos)
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(clockwise ? angle : -angle);
+
+    const gearGrad = ctx.createRadialGradient(0, 0, Rr * 0.3, 0, 0, R);
+    gearGrad.addColorStop(0,   '#1a3050');
+    gearGrad.addColorStop(0.6, '#1e3a6e');
+    gearGrad.addColorStop(1,   '#2a5298');
+
+    // Cuerpo del engranaje
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const a = i * aStep;
+      ctx.lineTo(Math.cos(a - tw)       * R,  Math.sin(a - tw)       * R);
+      ctx.lineTo(Math.cos(a - tw * 0.65) * Rt, Math.sin(a - tw * 0.65) * Rt);
+      ctx.lineTo(Math.cos(a + tw * 0.65) * Rt, Math.sin(a + tw * 0.65) * Rt);
+      ctx.lineTo(Math.cos(a + tw)       * R,  Math.sin(a + tw)       * R);
+      ctx.arc(0, 0, Rr, a + tw, (i + 1) * aStep - tw);
+    }
+    ctx.closePath();
+    ctx.fillStyle   = gearGrad;
+    ctx.strokeStyle = '#5dade2';
+    ctx.lineWidth   = 1.8;
+    ctx.fill();
+    ctx.stroke();
+
+    // ── v2: Highlights en caras de dientes ──
+    // La cara "frontal" de cada diente (flanco de ataque) recibe un trazo claro
+    for (let i = 0; i < n; i++) {
+      const a = i * aStep;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a - tw) * R,  Math.sin(a - tw) * R);
+      ctx.lineTo(Math.cos(a - tw * 0.65) * Rt, Math.sin(a - tw * 0.65) * Rt);
+      // Cresta del diente
+      ctx.lineTo(Math.cos(a + tw * 0.65) * Rt, Math.sin(a + tw * 0.65) * Rt);
+      ctx.strokeStyle = 'rgba(120, 200, 255, 0.50)';
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    // Radios del cubo
+    for (let i = 0; i < 6; i++) {
+      const ra = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ra) * 15, Math.sin(ra) * 15);
+      ctx.lineTo(Math.cos(ra) * (Rr - 5), Math.sin(ra) * (Rr - 5));
+      ctx.strokeStyle = 'rgba(93,173,226,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 14, 0, Math.PI * 2);
+    ctx.fillStyle = '#0d2033'; ctx.strokeStyle = '#5dade2'; ctx.lineWidth = 2;
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#90cdf4'; ctx.fill();
+    ctx.restore();
+  },
+
+  draw() {
+    const hb = this.housingBounds();
+    const hx = hb.left, hy = hb.top;
+    const hw = hb.right - hb.left, hh = hb.bottom - hb.top;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 30, 60, 0.9)'; ctx.strokeStyle = '#4a7aa8'; ctx.lineWidth = 4;
+    ctx.fillRect(hx, hy, hw, hh);
+    ctx.strokeRect(hx, hy, hw, hh);
+
+    if (SIM.showPressure) {
+      const gradL = ctx.createLinearGradient(hx, CY, CX, CY);
+      gradL.addColorStop(0, 'rgba(30,50,200,0.2)');
+      gradL.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradL; ctx.fillRect(hx, hy, hw / 2, hh);
+      const gradR = ctx.createLinearGradient(CX, CY, hx + hw, CY);
+      gradR.addColorStop(0, 'rgba(0,0,0,0)');
+      gradR.addColorStop(1, 'rgba(0,200,220,0.25)');
+      ctx.fillStyle = gradR; ctx.fillRect(CX, hy, hw / 2, hh);
+    }
+    ctx.restore();
+
+    // Indicador zona de engrane (cruza fluido NO pasa)
+    ctx.save();
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = 'rgba(255,100,100,0.25)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(CX, hy + 4); ctx.lineTo(CX, hy + hh - 4);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    this.drawGear(this.g1x, this.g1y, SIM.gear1Angle, false);
+    this.drawGear(this.g2x, this.g2y, SIM.gear2Angle, true);
+
+    this.drawPipes();
+    if (SIM.showLabels) this.drawLabels();
+  },
+
+  drawPipes() {
+    ctx.save();
+    ctx.lineWidth = 22; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(10, CY); ctx.lineTo(this.g1x - this.gearR - 10, CY); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.g2x + this.gearR + 10, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(10, CY); ctx.lineTo(this.g1x - this.gearR - 10, CY); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(this.g2x + this.gearR + 10, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
+    ctx.restore();
+    drawArrow(30, CY, 100, CY, '#1e90ff', 'SUCCIÓN');
+    drawArrow(canvas.width - 100, CY, canvas.width - 30, CY, '#00ffee', 'DESCARGA');
+  },
+
+  drawLabels() {
+    const hb = this.housingBounds();
+    labelText('Dientes\nseparándose\n→ ↓ P',  this.g1x - 25,  hb.top - 35, '#88ccff');
+    labelText('Dientes\njuntándose\n→ ↑ P',   this.g2x - 15,  hb.top - 35, '#ffcc44');
+    labelText('Fluido\natrapado\nentre dientes', CX - 40, hb.bottom + 8, '#88ccff');
+    labelText('⊗ Zona bloqueada\n(no hay flujo)', CX - 42, CY - 20, 'rgba(255,100,100,0.7)');
+  },
+};
+
+/* ─────────────────────────────────────────────
+   3D. BOMBA DE FLUJO AXIAL  (NUEVA)
+   Física: fluido se mueve PARALELAMENTE al eje de
+   rotación. Rotor tipo hélice con alabes de paso
+   variable. Alto caudal, baja presión diferencial.
+   Visual: tubo horizontal, hélice con efecto 3D
+   mediante elipses cuyo eje menor oscila con |cos|.
+───────────────────────────────────────────── */
+
+const AXIAL = {
+  tubeH:     110,   // altura del tubo (px)
+  rotorR:     50,   // radio de las palas (tubetH/2 - 5px de holgura)
+  hubR:       18,   // radio del cubo central
+  numBlades:   5,   // palas de la hélice
+
+  get tubeTop() { return CY - this.tubeH / 2; },
+  get tubeBot() { return CY + this.tubeH / 2; },
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const sf = SIM.rpm / 1500;
+
+    // Partículas de succión: entran por el extremo izquierdo del tubo
+    if (Math.random() < 0.55 * sf) {
+      const y = CY + (Math.random() - 0.5) * (this.tubeH - 12);
+      particles.push(createParticle(32, y, 1.8 * sf + Math.random() * 0.4, (Math.random()-0.5)*0.2, 'suction'));
+    }
+  },
+
+  updatePhysics(dt) {
+    const sf      = SIM.rpm / 1500;
+    const omega   = (SIM.rpm * 2 * Math.PI) / 60;
+    const tTop    = this.tubeTop;
+    const tBot    = this.tubeBot;
+
+    for (const p of particles) {
+      // Empuje axial (la hélice acelera el fluido horizontalmente)
+      if (p.x > 25 && p.x < canvas.width - 25) {
+        p.vx += 0.06 * sf;
+      }
+
+      // En la zona del rotor: añade pequeño giro radial (efecto de la pala)
+      if (Math.abs(p.x - CX) < this.rotorR * 1.5) {
+        const dy = p.y - CY;
+        const r  = Math.abs(dy);
+        if (r > 4) {
+          // Giro tangencial proyectado al plano vertical
+          p.vy += (-dy / r) * omega * 0.000055 * sf;
+        }
+        p.zone = 'chamber';
+      }
+
+      // Confinamiento: las partículas no salen del tubo
+      if (p.y < tTop + 6) p.vy += 0.55;
+      if (p.y > tBot - 6) p.vy -= 0.55;
+
+      // Colorear por zona
+      if (p.x < CX - this.rotorR)       p.zone = 'suction';
+      else if (p.x > CX + this.rotorR)  p.zone = 'discharge';
+    }
+  },
+
+  draw() {
+    const tTop = this.tubeTop;
+    const tBot = this.tubeBot;
+
+    // Mapa de presión (gradiente izquierda → derecha)
+    if (SIM.showPressure) {
+      const grad = ctx.createLinearGradient(20, CY, canvas.width - 20, CY);
+      grad.addColorStop(0,   'rgba(30,50,200,0.18)');
+      grad.addColorStop(0.45,'rgba(0,100,180,0.12)');
+      grad.addColorStop(1,   'rgba(0,200,220,0.22)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(20, tTop, canvas.width - 40, this.tubeH);
+    }
+
+    // Tubo (carcasa cilíndrica)
+    ctx.save();
+    ctx.fillStyle   = 'rgba(15,30,60,0.88)';
+    ctx.strokeStyle = '#4a7aa8';
+    ctx.lineWidth   = 4;
+    ctx.beginPath();
+    ctx.rect(20, tTop, canvas.width - 40, this.tubeH);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    // Líneas interiores del tubo (efecto metálico)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(93,173,226,0.22)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.moveTo(25, tTop + 5);  ctx.lineTo(canvas.width - 25, tTop + 5);
+    ctx.moveTo(25, tBot - 5);  ctx.lineTo(canvas.width - 25, tBot - 5);
+    ctx.stroke();
+    ctx.restore();
+
+    // Álabe directriz de entrada (estátor upstream — fijo)
+    this._drawStatorVanes(CX - 120, tTop, tBot, 6, false);
+
+    // Difusor de salida (fijo)
+    this._drawStatorVanes(CX + 120, tTop, tBot, 6, true);
+
+    // Collares del rotor (anillos de fijación)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(93,173,226,0.55)';
+    ctx.lineWidth   = 2.5;
+    [[CX - this.rotorR - 8, tTop - 5, tBot + 5],
+     [CX + this.rotorR + 8, tTop - 5, tBot + 5]].forEach(([x, y1, y2]) => {
+      ctx.beginPath(); ctx.moveTo(x, y1); ctx.lineTo(x, y2); ctx.stroke();
+    });
+    ctx.restore();
+
+    // Eje del rotor (línea central continua)
+    ctx.save();
+    ctx.strokeStyle = 'rgba(93,173,226,0.35)';
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    ctx.moveTo(20, CY); ctx.lineTo(canvas.width - 20, CY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Hélice (rotor giratorio)
+    this._drawRotor();
+
+    // Flechas y etiquetas
+    drawArrow(50, CY, 140, CY, '#1e90ff', 'ENTRADA AXIAL');
+    drawArrow(canvas.width - 150, CY, canvas.width - 50, CY, '#00ffee', 'SALIDA (↑ P)');
+
+    if (SIM.showLabels) {
+      labelText('Álabe\ndirectriz\n(estátor)',   CX - 148, tTop - 44, '#88ccff');
+      labelText('ROTOR\n(Hélice)',                CX - 24,  tTop - 34, '#00d4ff');
+      labelText('Difusor',                        CX + 104, tTop - 34, '#88ccff');
+      labelText('Alto Q  ·  Baja H diferencial',  180,      tTop - 50, '#ffcc44');
+    }
+  },
+
+  /** Álabes de estátor / difusor (fijos, angled) */
+  _drawStatorVanes(cx, tTop, tBot, n, downstream) {
+    const spacing = (tBot - tTop - 14) / (n - 1);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(74,122,168,0.75)';
+    ctx.lineWidth   = 2;
+    ctx.lineCap     = 'round';
+    for (let i = 0; i < n; i++) {
+      const y = tTop + 7 + i * spacing;
+      const ox = downstream ? 7 : -7;
+      ctx.beginPath();
+      ctx.moveTo(cx - 7, y);
+      ctx.lineTo(cx + 7 + ox, y - 3);
+      ctx.stroke();
+    }
+    ctx.restore();
+  },
+
+  /** Dibuja la hélice con efecto 3D: las palas oscilan con |cos| */
+  _drawRotor() {
+    ctx.save();
+    ctx.translate(CX, CY);
+
+    const numBlades = this.numBlades;
+    const hubR      = this.hubR;
+    const rotorR    = this.rotorR - 2;
+    const bladeLen  = rotorR - hubR;
+
+    for (let i = 0; i < numBlades; i++) {
+      const bladeAngle = SIM.angle * 1.6 + (i / numBlades) * Math.PI * 2;
+      const cosA  = Math.cos(bladeAngle);
+
+      // Efecto 3D: el "espesor" visible de la pala oscila con |cosA|
+      // (0 = vista de canto; 1 = vista de frente)
+      const thick = Math.max(2.5, 17 * Math.abs(cosA));
+      const alpha = 0.50 + 0.50 * Math.abs(cosA);
+
+      ctx.save();
+      ctx.rotate(bladeAngle);
+
+      const midX = hubR + bladeLen * 0.52;
+
+      // Cuerpo de la pala (elipse foreshortened)
+      ctx.beginPath();
+      ctx.ellipse(midX, 0, bladeLen * 0.5, thick * 0.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle   = `rgba(0, 150, 215, ${alpha})`;
+      ctx.fill();
+
+      // Highlight en el borde líder
+      ctx.beginPath();
+      ctx.ellipse(midX, 0, bladeLen * 0.5, Math.max(0.8, thick * 0.18), 0, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(160, 235, 255, ${alpha * 0.65})`;
+      ctx.lineWidth   = 1.2;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Cubo del rotor
+    const hubGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, hubR);
+    hubGrad.addColorStop(0, '#2e5590');
+    hubGrad.addColorStop(1, '#162a4a');
+    ctx.beginPath();
+    ctx.arc(0, 0, hubR, 0, Math.PI * 2);
+    ctx.fillStyle   = hubGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#5dade2'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Tuerca central
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fillStyle = '#90cdf4'; ctx.fill();
+
+    ctx.restore();
+  },
+};
+
+/* ─────────────────────────────────────────────
+   3E. BOMBA DE FLUJO MIXTO  (NUEVA)
+   Física: combina características axiales y
+   centrífugas. El fluido entra axialmente (izq.)
+   y sale en diagonal (45°) por la carcasa en espiral.
+   Posición intermedia en la curva Q-H.
+   Visual: rodete cónico + carcasa con entrada recta
+   y salida diagonal hacia arriba-derecha.
+───────────────────────────────────────────── */
+
+const MIXED = {
+  impellerR: 78,   // radio del rodete
+  numBlades:  6,
+  volutaR:   100,  // radio exterior de la voluta
+
+  // La carcasa se centra ligeramente a la izquierda del canvas
+  hcx: CX - 10,
+  hcy: CY + 8,
+
+  // Salida: 45° hacia arriba-derecha
+  outletAngle: -Math.PI / 4,
+  outletLen:   150,
+
+  // Punto de salida en el borde de la voluta
+  get outletStartX() { return this.hcx + Math.cos(this.outletAngle) * (this.volutaR + 4); },
+  get outletStartY() { return this.hcy + Math.sin(this.outletAngle) * (this.volutaR + 4); },
+  get outletEndX()   { return this.outletStartX + Math.cos(this.outletAngle) * this.outletLen; },
+  get outletEndY()   { return this.outletStartY + Math.sin(this.outletAngle) * this.outletLen; },
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const sf = SIM.rpm / 1500;
+
+    // Succión: entra horizontalmente por la izquierda
+    if (Math.random() < 0.45 * sf) {
+      const y = this.hcy + (Math.random() - 0.5) * 18;
+      particles.push(createParticle(18, y, 1.6 * sf, (Math.random()-0.5)*0.3, 'suction'));
+    }
+
+    // Descarga: sale por el nozzle diagonal
+    if (Math.random() < 0.35 * sf) {
+      const nx = Math.cos(this.outletAngle);
+      const ny = Math.sin(this.outletAngle);
+      const ox = this.outletStartX + (Math.random()-0.5)*10;
+      const oy = this.outletStartY + (Math.random()-0.5)*10;
+      particles.push(createParticle(ox, oy, 2.4*sf*nx, 2.4*sf*ny, 'discharge'));
+    }
+  },
+
+  updatePhysics(dt) {
+    const omega = (SIM.rpm * 2 * Math.PI) / 60;
+    const sf    = SIM.rpm / 1500;
+    const hcx   = this.hcx, hcy = this.hcy;
+    const nx    = Math.cos(this.outletAngle);
+    const ny    = Math.sin(this.outletAngle);
+
+    for (const p of particles) {
+      const dx = p.x - hcx;
+      const dy = p.y - hcy;
+      const r  = Math.sqrt(dx*dx + dy*dy);
+
+      if (r < this.volutaR && r > 5) {
+        // Zona del rodete: centrífuga + axial mezclados
+        const rnx = dx / r, rny = dy / r;
+        const tx  = -rny, ty = rnx;
+
+        const radAcc  = omega * omega * r * 0.00022;
+        const tangAcc = omega * r * 0.00065;
+
+        p.vx += (rnx * radAcc + tx * tangAcc) * dt * sf;
+        p.vy += (rny * radAcc + ty * tangAcc) * dt * sf;
+
+        // Sesgo hacia la salida diagonal
+        p.vx += nx * 0.025 * sf;
+        p.vy += ny * 0.025 * sf;
+
+        if (r < 28)       p.zone = 'suction';
+        else if (r < 60)  p.zone = 'chamber';
+        else               p.zone = 'discharge';
+
+      } else if (r >= this.volutaR) {
+        // Voluta → guiar hacia salida diagonal
+        p.vx += nx * 0.055 * sf;
+        p.vy += ny * 0.055 * sf;
+        p.vx *= 0.97; p.vy *= 0.97;
+        p.zone = 'discharge';
+      }
+    }
+  },
+
+  draw() {
+    const hcx = this.hcx, hcy = this.hcy;
+
+    // Mapa de presión radial
+    if (SIM.showPressure) {
+      const grad = ctx.createRadialGradient(hcx, hcy, 8, hcx, hcy, this.volutaR);
+      grad.addColorStop(0,   'rgba(30,50,120,0.42)');
+      grad.addColorStop(0.5, 'rgba(0,100,180,0.28)');
+      grad.addColorStop(1,   'rgba(0,200,220,0.18)');
+      ctx.beginPath();
+      ctx.arc(hcx, hcy, this.volutaR, 0, Math.PI*2);
+      ctx.fillStyle = grad; ctx.fill();
+    }
+
+    // Voluta (espiral)
+    ctx.save();
+    ctx.fillStyle   = 'rgba(18,36,75,0.78)';
+    ctx.strokeStyle = '#4a7aa8';
+    ctx.lineWidth   = 3;
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI * 2; a += 0.05) {
+      const rr = this.volutaR + (a / (Math.PI * 2)) * 22;
+      const x  = hcx + Math.cos(a - Math.PI / 2) * rr;
+      const y  = hcy + Math.sin(a - Math.PI / 2) * rr;
+      if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+
+    // Tubería de ENTRADA (horizontal desde izquierda)
+    ctx.save();
+    ctx.lineWidth = 22; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(10, hcy);
+    ctx.lineTo(hcx - this.impellerR - 18, hcy);
+    ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(10, hcy);
+    ctx.lineTo(hcx - this.impellerR - 18, hcy);
+    ctx.stroke();
+    ctx.restore();
+
+    // Tubería de SALIDA (diagonal 45°)
+    ctx.save();
+    ctx.lineWidth = 22; ctx.lineCap = 'round'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(this.outletStartX, this.outletStartY);
+    ctx.lineTo(this.outletEndX,   this.outletEndY);
+    ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(this.outletStartX, this.outletStartY);
+    ctx.lineTo(this.outletEndX,   this.outletEndY);
+    ctx.stroke();
+    ctx.restore();
+
+    // Rodete mixto
+    this._drawImpeller();
+
+    // Flechas de flujo
+    drawArrow(45, hcy, 130, hcy, '#1e90ff', 'ENTRADA AXIAL');
+    const mx = (this.outletStartX + this.outletEndX) * 0.5 + 8;
+    const my = (this.outletStartY + this.outletEndY) * 0.5 - 8;
+    drawArrow(
+      this.outletStartX + 15, this.outletStartY - 15,
+      this.outletEndX   - 10, this.outletEndY   + 10,
+      '#00ffee', 'SALIDA 45°'
+    );
+
+    if (SIM.showLabels) {
+      labelText('Entrada\naxial',     hcx - 145, hcy - 22, '#ffcc44');
+      labelText('Rodete\ncónico\nmixto', hcx + 48, hcy - 20, '#88ccff');
+      labelText('Salida\ndiagonal\n45°', this.outletEndX - 50, this.outletEndY - 30, '#ffcc44');
+      labelText('Q y H\nintermedios',  hcx - 22, hcy + 115, '#88ccff');
+    }
+  },
+
+  _drawImpeller() {
+    const hcx = this.hcx, hcy = this.hcy;
+
+    ctx.save();
+    ctx.translate(hcx, hcy);
+    ctx.rotate(SIM.angle);
+
+    // Disco principal
+    ctx.beginPath();
+    ctx.arc(0, 0, this.impellerR, 0, Math.PI*2);
+    ctx.fillStyle   = 'rgba(25,48,90,0.92)';
+    ctx.fill();
+    ctx.strokeStyle = '#2a6090'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Perfil cónico simulado: elipse descentrada que oscila sutilmente
+    const coneOff = 8 * Math.sin(SIM.time * 1.8);
+    ctx.save();
+    ctx.globalAlpha = 0.30;
+    ctx.beginPath();
+    ctx.ellipse(coneOff * 0.4, 0, this.impellerR * 0.55, this.impellerR * 0.30,
+                Math.PI / 5, 0, Math.PI*2);
+    ctx.strokeStyle = '#4a90c8'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+
+    // Álabes de flujo mixto (curva intermedia entre axial y centrífuga)
+    for (let b = 0; b < this.numBlades; b++) {
+      const ba = (b / this.numBlades) * Math.PI * 2;
+      ctx.save();
+      ctx.rotate(ba);
+
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.bezierCurveTo(
+        38, -18,
+        this.impellerR - 22, -26,
+        this.impellerR - 7,  -9
+      );
+      ctx.strokeStyle = '#5dade2'; ctx.lineWidth = 3.8; ctx.lineCap = 'round'; ctx.stroke();
+      // Highlight
+      ctx.beginPath();
+      ctx.moveTo(16, 0);
+      ctx.bezierCurveTo(38, -18, this.impellerR-22, -26, this.impellerR-7, -9);
+      ctx.strokeStyle = 'rgba(160,235,255,0.32)'; ctx.lineWidth = 1.2; ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Hub + eje
+    ctx.beginPath();
+    ctx.arc(0, 0, 13, 0, Math.PI*2);
+    ctx.fillStyle = '#0d2040'; ctx.fill();
+    ctx.strokeStyle = '#5dade2'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, 0, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#90cdf4'; ctx.fill();
+
+    ctx.restore();
+  },
+};
+
+/* ─────────────────────────────────────────────
+   3F. BOMBA DE MEMBRANA / DIAFRAGMA  (NUEVA)
+   Física: desplazamiento positivo idéntico al pistón.
+   Misma lógica de válvulas de retención.
+   Visual: en lugar del bloque rígido, la "pared"
+   activa es una membrana flexible dibujada con
+   ctx.bezierCurveTo(). El punto de control oscila
+   con Math.sin(pistonPos·2π) para simular la goma
+   estirándose y contrayéndose.
+   El actuador mecánico (biela-cigüeñal) es idéntico
+   al pistón pero conectado al centro de la membrana.
+───────────────────────────────────────────── */
+
+const DIAPHRAGM = {
+  cylW:     96,    // anchura del cilindro
+  cylH:    162,    // alto del cilindro
+  cylX:    CX - 48,
+  cylY:    CY - 81,
+  memAmp:   22,    // amplitud de oscilación de la membrana (px)
+
+  // Posición vertical de la membrana (idéntica al pistón)
+  getMembraneY() {
+    const stroke = this.cylH - 12;
+    return this.cylY + 6 + SIM.pistonPos * stroke;
+  },
+
+  emitParticles() {
+    if (!SIM.running || particles.length >= MAX_PARTICLES) return;
+    const sf = SIM.rpm / 1500;
+    const memY = this.getMembraneY();
+
+    if (PISTON.phase === 'suction') {
+      if (Math.random() < 0.3 * sf) {
+        const x = this.cylX + 15 + Math.random() * (this.cylW - 30);
+        particles.push(createParticle(x, this.cylY + this.cylH + 6, (Math.random()-0.5)*0.5, -1.5*sf, 'suction'));
+      }
+    } else {
+      if (Math.random() < 0.5 * sf) {
+        const x = this.cylX + 15 + Math.random() * (this.cylW - 30);
+        particles.push(createParticle(x, this.cylY - 5, (Math.random()-0.5)*1.5, -3*sf, 'discharge'));
+      }
+    }
+
+    // Partículas dentro de la cámara se comprimen hacia arriba
+    for (const p of particles) {
+      if (p.x > this.cylX && p.x < this.cylX + this.cylW &&
+          p.y > this.cylY && p.y < memY) {
+        p.zone = 'chamber';
+        if (PISTON.phase === 'compression') p.vy -= 0.05 * sf;
+      }
+    }
+  },
+
+  draw() {
+    const memY  = this.getMembraneY();
+    const amp   = this.memAmp * Math.sin(SIM.pistonPos * Math.PI * 2);
+    // amp > 0 en compresión → membrana abomba hacia arriba (empuja fluido)
+    // amp < 0 en succión → membrana abomba hacia abajo (expande cámara)
+
+    ctx.save();
+
+    // Mapa de presión
+    if (SIM.showPressure) {
+      const pAlpha = PISTON.phase === 'compression' ? 0.38 : 0.10;
+      ctx.fillStyle = `rgba(0,175,215,${pAlpha})`;
+      ctx.fillRect(this.cylX, this.cylY, this.cylW, memY - this.cylY);
+    }
+
+    // Paredes del cilindro
+    ctx.strokeStyle = '#4a7aa8'; ctx.lineWidth = 4;
+    ctx.fillStyle   = 'rgba(15,30,60,0.92)';
+    ctx.fillRect(this.cylX, this.cylY, this.cylW, this.cylH);
+    ctx.strokeRect(this.cylX, this.cylY, this.cylW, this.cylH);
+
+    ctx.restore();
+
+    // ── MEMBRANA FLEXIBLE (bezier) ──
+    // La membrana reemplaza al pistón rígido.
+    // P0 = (cylX, memY), P3 = (cylX+cylW, memY)
+    // Puntos de control simétricos oscilan ± amp en Y.
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(this.cylX, memY);
+    ctx.bezierCurveTo(
+      this.cylX + this.cylW * 0.33,  memY - amp,      // CP1
+      this.cylX + this.cylW * 0.67,  memY - amp,      // CP2
+      this.cylX + this.cylW,          memY             // extremo derecho
+    );
+    // Trazo inferior (grosor de la membrana)
+    ctx.bezierCurveTo(
+      this.cylX + this.cylW * 0.67,  memY - amp + 9,
+      this.cylX + this.cylW * 0.33,  memY - amp + 9,
+      this.cylX,                      memY
+    );
+    ctx.closePath();
+    // Color goma (verde oscuro)
+    const memGrad = ctx.createLinearGradient(this.cylX, memY - amp, this.cylX + this.cylW, memY);
+    memGrad.addColorStop(0,   '#276749');
+    memGrad.addColorStop(0.5, '#48bb78');
+    memGrad.addColorStop(1,   '#276749');
+    ctx.fillStyle   = memGrad;
+    ctx.strokeStyle = '#9ae6b4';
+    ctx.lineWidth   = 1.5;
+    ctx.fill();
+    ctx.stroke();
+
+    // Highlight sobre la membrana (indica flexibilidad)
+    ctx.beginPath();
+    ctx.moveTo(this.cylX + 6, memY);
+    ctx.bezierCurveTo(
+      this.cylX + this.cylW * 0.33, memY - amp * 0.7,
+      this.cylX + this.cylW * 0.67, memY - amp * 0.7,
+      this.cylX + this.cylW - 6,    memY
+    );
+    ctx.strokeStyle = 'rgba(190,255,210,0.45)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+
+    // Punto de unión del actuador (centro de la membrana)
+    // En t=0.5 del bezier simétrico: y_center ≈ memY - 0.75*amp
+    const rodAttachX = this.cylX + this.cylW / 2;
+    const rodAttachY = memY - 0.75 * amp;
+
+    // Vástago del actuador
+    ctx.save();
+    ctx.fillStyle = '#48bb78';
+    ctx.fillRect(rodAttachX - 7, rodAttachY, 14, this.cylH - (rodAttachY - this.cylY) + 24);
+    ctx.restore();
+
+    // Cigüeñal (idéntico al pistón)
+    const crankCX = CX;
+    const crankCY = this.cylY + this.cylH + 52;
+    const crankR  = 34;
+    const crankAngle = SIM.pistonPos * Math.PI * 2 - Math.PI / 2;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(crankCX, crankCY, crankR, 0, Math.PI*2);
+    ctx.strokeStyle = '#2c5282'; ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(20,40,80,0.8)';
+    ctx.fill(); ctx.stroke();
+
+    const pinX = crankCX + Math.cos(crankAngle) * crankR;
+    const pinY = crankCY + Math.sin(crankAngle) * crankR;
+    ctx.beginPath(); ctx.arc(pinX, pinY, 6, 0, Math.PI*2);
+    ctx.fillStyle = '#48bb78'; ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(pinX, pinY);
+    ctx.lineTo(rodAttachX, rodAttachY + 12);
+    ctx.strokeStyle = '#4ac992'; ctx.lineWidth = 6; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.restore();
+
+    // Válvulas (reutiliza drawValve del pistón, adaptado a dimensiones de membrana)
+    this._drawValves(memY);
+
+    // Tuberías
+    this._drawPipes();
+
+    if (SIM.showLabels) this._drawLabels(memY);
+  },
+
+  _drawValves(memY) {
+    const vx = this.cylX + this.cylW / 2 - 20;
+    // Válvula de admisión (inferior)
+    PISTON.drawValve(vx, this.cylY + this.cylH - 9, PISTON.inletOpen, 'inlet');
+    // Válvula de descarga (superior)
+    PISTON.drawValve(vx, this.cylY - 11, PISTON.outletOpen, 'outlet');
+  },
+
+  _drawPipes() {
+    const px = this.cylX + this.cylW / 2;
+    ctx.save();
+    ctx.lineWidth = 20; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
+    ctx.beginPath();
+    ctx.moveTo(px, this.cylY + this.cylH + 30); ctx.lineTo(px, canvas.height - 10); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(px, this.cylY - 30); ctx.lineTo(px, 10); ctx.stroke();
+    ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
+    ctx.beginPath();
+    ctx.moveTo(px, this.cylY + this.cylH + 30); ctx.lineTo(px, canvas.height - 10); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(px, this.cylY - 30); ctx.lineTo(px, 10); ctx.stroke();
+    ctx.restore();
+    drawArrow(CX, canvas.height - 20, CX, this.cylY + this.cylH + 35, '#1e90ff', 'SUCCIÓN');
+    drawArrow(CX, this.cylY - 35,     CX, 15, '#00ffee', 'DESCARGA');
+  },
+
+  _drawLabels(memY) {
+    labelText('Cámara de\nfluido',           this.cylX - 82, (this.cylY + memY) / 2,    '#88ccff');
+    labelText('MEMBRANA\nflexible (goma)',   this.cylX + this.cylW + 8, memY - 10,        '#48bb78');
+    labelText('Actuador\nbiela-cigüeñal',    CX + 55, this.cylY + this.cylH + 52,         '#88ccff');
+    labelText('Válvula\nadmisión',           this.cylX + this.cylW + 8, this.cylY + this.cylH - 5, '#ffcc44');
+    labelText('Válvula\ndescarga',           this.cylX + this.cylW + 8, this.cylY - 10,   '#ffcc44');
+    labelText('Membrana oscila\ncon sin(ωt)',CX - 42, this.cylY + this.cylH + 22, 'rgba(72,187,120,0.7)');
+  },
+};
+
+/* ─────────────────────────────────────────────
+   4. UTILIDADES DE RENDERIZADO
+───────────────────────────────────────────── */
+
+function drawArrow(x1, y1, x2, y2, color, label) {
+  const angle = Math.atan2(y2 - y1, x2 - x1);
+  const headLen = 10;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI/6), y2 - headLen * Math.sin(angle - Math.PI/6));
+  ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI/6), y2 - headLen * Math.sin(angle + Math.PI/6));
+  ctx.closePath(); ctx.fill();
+  if (label && SIM.showLabels) {
+    ctx.font = '10px "Share Tech Mono", monospace';
+    ctx.fillStyle = color; ctx.globalAlpha = 0.8;
+    ctx.fillText(label, (x1+x2)/2 - 20, (y1+y2)/2 - 8);
+  }
+  ctx.restore();
+}
+
+function labelText(text, x, y, color) {
+  const lines = text.split('\n');
+  ctx.save();
+  ctx.font = '11px "Share Tech Mono", monospace';
+  ctx.fillStyle = color; ctx.globalAlpha = 0.85;
+  lines.forEach((line, i) => ctx.fillText(line, x, y + i * 14));
+  ctx.restore();
+}
+
+function drawBackground() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#080d18';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(30,50,80,0.5)'; ctx.lineWidth = 0.5;
+  for (let x = 0; x < canvas.width; x += 20)  { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y = 0; y < canvas.height; y += 20) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  ctx.strokeStyle = 'rgba(30,50,80,0.9)'; ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 100)  { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,canvas.height); ctx.stroke(); }
+  for (let y = 0; y < canvas.height; y += 100) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(canvas.width,y); ctx.stroke(); }
+  ctx.restore();
+}
+
+/* ─────────────────────────────────────────────
+   5. TELEMETRÍA — Cálculos hidráulicos
+   Coeficientes kQ / kH por tipo de bomba:
+     Axial:      alto kQ, muy bajo kH  (↑Q, ↓H)
+     Mixto:      intermedio            (Q y H medios)
+     Membrana:   igual al pistón       (↓Q, ↑H)
+───────────────────────────────────────────── */
+
+const TELEMETRY = {
+  update() {
+    const n  = SIM.rpm;
+    const D  = SIM.diameter / 1000;
+    const mu = SIM.viscosity;
+    const Hs = SIM.suction;
+
+    let kQ = 0, kH = 0, eta = 0;
+    switch (SIM.pumpType) {
+      case 'centrifugal':
+        kQ = 0.0005;  kH = 0.00004;  eta = 0.78 - (mu/100)*0.30; break;
+      case 'piston':
+        kQ = 0.0003;  kH = 0.00008;  eta = 0.90 - (mu/100)*0.10; break;
+      case 'gear':
+        kQ = 0.0004;  kH = 0.00006;  eta = 0.85 - (mu/100)*0.20; break;
+      // ── NUEVAS BOMBAS ──
+      case 'axial':
+        // Alto caudal, muy baja altura manométrica
+        kQ = 0.00092;  kH = 0.000014;  eta = 0.83 - (mu/100)*0.38; break;
+      case 'mixed':
+        // Valores intermedios entre axial y centrífuga
+        kQ = 0.00062;  kH = 0.000026;  eta = 0.81 - (mu/100)*0.32; break;
+      case 'diaphragm':
+        // Similar al pistón: bajo Q, alta presión, eficiencia volumétrica excelente
+        kQ = 0.00028;  kH = 0.000078;  eta = 0.88 - (mu/100)*0.08; break;
+    }
+
+    eta = Math.max(0.3, Math.min(0.95, eta));
+
+    const A    = Math.PI * (D / 2) ** 2;
+    const Q    = kQ * n * A * 1000;
+    const H    = kH * n * n * (1 - (mu/100) * 0.5);
+    const rho  = 1000, g = 9.81;
+    const P_bar = (rho * g * H) / 1e5;
+    const P_hyd = rho * g * H * (Q / 3600);
+    const P_mec = P_hyd / eta / 1000;
+
+    const Ha   = 10.33, Hv = 0.25;
+    const Hf   = Hs * 0.1 * (mu / 1);
+    const NPSH = Ha - Hv - Hf - Hs;
+    const cavitation = NPSH < 2.0;
+
+    document.getElementById('tele-flow').textContent     = Q.toFixed(2);
+    document.getElementById('tele-pressure').textContent = P_bar.toFixed(2);
+    document.getElementById('tele-power').textContent    = P_mec.toFixed(2);
+    document.getElementById('tele-npsh').textContent     = NPSH.toFixed(2);
+
+    document.getElementById('tele-flow-sub').textContent =
+      `Q = ${(Q/3600*1000).toFixed(1)} L/s`;
+    document.getElementById('tele-power-sub').textContent =
+      `η = ${(eta*100).toFixed(0)}% | Phid = ${(P_hyd/1000).toFixed(2)}kW`;
+
+    const pct = Math.min(P_bar / 10 * 100, 100);
+    document.getElementById('pressure-bar').style.width = pct + '%';
+    const bar = document.getElementById('pressure-bar');
+    if (pct > 80)      bar.style.background = 'linear-gradient(90deg,#f59e0b,#ef4444)';
+    else if (pct > 50) bar.style.background = 'linear-gradient(90deg,#00d4ff,#f59e0b)';
+    else               bar.style.background = 'linear-gradient(90deg,#0099bb,#00d4ff)';
+
+    const circumf = 138.2;
+    document.getElementById('gauge-circle').style.strokeDashoffset = circumf - circumf * eta;
+    document.getElementById('gauge-text').textContent = Math.round(eta * 100) + '%';
+
+    const npshEl = document.getElementById('tele-npsh-warn');
+    if (cavitation) {
+      npshEl.style.color = '#ef4444'; npshEl.textContent = '⚠ ¡Riesgo de cavitación!';
+    } else {
+      npshEl.style.color = '#10b981'; npshEl.textContent = '✓ Sin cavitación';
+    }
+
+    return { Q, P_bar, P_mec, NPSH, eta, cavitation };
+  },
+};
+
+/* ─────────────────────────────────────────────
+   6. LOOP PRINCIPAL — requestAnimationFrame
+───────────────────────────────────────────── */
+
+let frameCount = 0;
+
+function gameLoop(timestamp) {
+  const dt = Math.min((timestamp - SIM.frameTime) / 1000, 0.1);
+  SIM.frameTime = timestamp;
+
+  if (SIM.running) {
+    SIM.time += dt;
+    const omega = (SIM.rpm * 2 * Math.PI) / 60;
+
+    SIM.angle      += omega * dt;
+    SIM.gear1Angle += omega * dt;
+    SIM.gear2Angle += omega * dt;
+
+    // Física por tipo de bomba
+    switch (SIM.pumpType) {
+      case 'centrifugal':
+        CENTRIFUGAL.emitParticles();
+        CENTRIFUGAL.updatePhysics(dt);
+        break;
+      case 'piston':
+        PISTON.updatePhysics(dt);
+        PISTON.emitParticles();
+        break;
+      case 'gear':
+        GEAR.emitParticles();
+        GEAR.updatePhysics(dt);
+        break;
+      case 'axial':
+        AXIAL.emitParticles();
+        AXIAL.updatePhysics(dt);
+        break;
+      case 'mixed':
+        MIXED.emitParticles();
+        MIXED.updatePhysics(dt);
+        break;
+      case 'diaphragm':
+        // Reutiliza la lógica de válvulas/fase del pistón
+        PISTON.updatePhysics(dt);
+        DIAPHRAGM.emitParticles();
+        break;
+    }
+
+    updateParticles(dt);
+  }
+
+  // ── Renderizado ──
+  drawBackground();
+
+  switch (SIM.pumpType) {
+    case 'centrifugal': CENTRIFUGAL.draw(); break;
+    case 'piston':      PISTON.draw();      break;
+    case 'gear':        GEAR.draw();        break;
+    case 'axial':       AXIAL.draw();       break;
+    case 'mixed':       MIXED.draw();       break;
+    case 'diaphragm':   DIAPHRAGM.draw();   break;
+  }
+
+  drawParticles();
+
+  // HUD inferior
+  ctx.save();
+  ctx.font      = '11px "Share Tech Mono", monospace';
+  ctx.fillStyle = 'rgba(0,212,255,0.5)';
+  ctx.fillText(`t = ${SIM.time.toFixed(1)}s  |  ${SIM.rpm} RPM  |  η_visc = ${SIM.viscosity.toFixed(0)}cP`,
+    10, canvas.height - 10);
+  ctx.restore();
+
+  if (frameCount % 10 === 0 && SIM.running) TELEMETRY.update();
+  frameCount++;
+  requestAnimationFrame(gameLoop);
+}
+
+/* ─────────────────────────────────────────────
+   7. UI — EVENTOS Y CONTROL
+───────────────────────────────────────────── */
+
+function selectPump(type) {
+  SIM.pumpType = type;
+  particles = [];
+
+  document.querySelectorAll('.pump-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + type).classList.add('active');
+
+  // Mostrar panel de válvulas para bombas de desplazamiento positivo
+  document.getElementById('valve-card').style.display =
+    (type === 'piston' || type === 'diaphragm') ? 'block' : 'none';
+
+  const titles = {
+    centrifugal: 'BOMBA CENTRÍFUGA — EN OPERACIÓN',
+    piston:      'BOMBA DE PISTÓN / RECÍPROCA — EN OPERACIÓN',
+    gear:        'BOMBA DE ENGRANAJES — EN OPERACIÓN',
+    axial:       'BOMBA DE FLUJO AXIAL — EN OPERACIÓN',
+    mixed:       'BOMBA DE FLUJO MIXTO — EN OPERACIÓN',
+    diaphragm:   'BOMBA DE MEMBRANA / DIAFRAGMA — EN OPERACIÓN',
+  };
+  document.getElementById('pump-title').textContent = titles[type];
+
+  const descs = {
+    centrifugal:
+      'La bomba centrífuga convierte energía mecánica de rotación en energía cinética del fluido mediante un rodete (impeler). La fuerza centrífuga empuja el líquido hacia la voluta, donde la energía cinética se transforma en presión estática.',
+    piston:
+      'La bomba de pistón es de desplazamiento positivo. El pistón se mueve axialmente: en la fase de succión aspira fluido; en la fase de compresión lo expulsa. Las válvulas de retención controlan la dirección del flujo.',
+    gear:
+      'La bomba de engranajes atrapa el fluido en las cavidades entre los dientes y la carcasa. Los dientes que se separan crean vacío (succión); los que se juntan comprimen y expulsan el fluido. El fluido NO atraviesa la zona central de engrane.',
+    axial:
+      'La bomba de flujo axial mueve el fluido paralelamente al eje de rotación mediante un rotor tipo hélice náutica. Genera muy alto caudal con baja presión diferencial. Ideal para grandes volúmenes a baja altura manométrica.',
+    mixed:
+      'La bomba de flujo mixto combina características axiales y centrífugas. El fluido entra horizontalmente (axial) y es desviado hacia la salida diagonal a 45° por un rodete cónico. Ofrece caudal y presión intermedios entre los otros dos tipos.',
+    diaphragm:
+      'La bomba de membrana (diafragma) es de desplazamiento positivo. Una membrana flexible de goma o PTFE separa el fluido del mecanismo actuador. Al oscilar, genera ciclos de succión y expulsión. Sin contacto entre fluido y partes mecánicas: ideal para fluidos corrosivos.',
+  };
+  document.getElementById('pump-description').textContent = descs[type];
+
+  addLog(`Bomba cambiada → ${type.toUpperCase()}`);
+  TELEMETRY.update();
+}
+
+function updateParams() {
+  SIM.rpm       = parseInt(document.getElementById('sl-rpm').value);
+  SIM.viscosity = parseFloat(document.getElementById('sl-visc').value);
+  SIM.suction   = parseFloat(document.getElementById('sl-suction').value);
+  SIM.diameter  = parseInt(document.getElementById('sl-diam').value);
+
+  SIM.showParticles = document.getElementById('opt-particles').checked;
+  SIM.showVectors   = document.getElementById('opt-vectors').checked;
+  SIM.showPressure  = document.getElementById('opt-pressure').checked;
+  SIM.showLabels    = document.getElementById('opt-labels').checked;
+
+  document.getElementById('lbl-rpm').textContent     = SIM.rpm;
+  document.getElementById('lbl-visc').textContent    = SIM.viscosity.toFixed(1);
+  document.getElementById('lbl-suction').textContent = SIM.suction.toFixed(1);
+  document.getElementById('lbl-diam').textContent    = SIM.diameter;
+
+  TELEMETRY.update();
+}
+
+function togglePlay() {
+  SIM.running = !SIM.running;
+  const btn = document.getElementById('btn-play');
+  if (SIM.running) {
+    btn.textContent = '⏸ PAUSAR'; btn.className = 'ctrl-btn play';
+    document.getElementById('pump-title').textContent =
+      document.getElementById('pump-title').textContent.replace('— PAUSADO', '— EN OPERACIÓN');
+    addLog('Simulación reanudada');
+  } else {
+    btn.textContent = '▶ REANUDAR'; btn.className = 'ctrl-btn reset';
+    document.getElementById('pump-title').textContent =
+      document.getElementById('pump-title').textContent.replace('— EN OPERACIÓN', '— PAUSADO');
+    addLog('Simulación pausada');
+  }
+}
+
+function resetSim() {
+  SIM.time = 0; SIM.angle = 0; SIM.pistonPos = 0;
+  SIM.gear1Angle = 0; SIM.gear2Angle = 0;
+  particles = [];
+  addLog('Simulación reiniciada');
+}
+
+function addLog(msg) {
+  const log = document.getElementById('event-log');
+  const t   = new Date();
+  const ts  = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.textContent = `[${ts}] ${msg}`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+  while (log.children.length > 20) log.removeChild(log.firstChild);
+}
+
+// Alertas periódicas en el log
+setInterval(() => {
+  if (!SIM.running) return;
+  const { Q, P_bar, NPSH, cavitation } = TELEMETRY.update();
+  if (cavitation) {
+    addLog(`⚠ CAVITACIÓN: NPSH=${NPSH.toFixed(1)}m < 2.0m`);
+  } else if (Math.random() < 0.15) {
+    addLog(`Q=${Q.toFixed(2)}m³/h | P=${P_bar.toFixed(2)}bar`);
+  }
+}, 3000);
+
+/* ─────────────────────────────────────────────
+   INICIALIZACIÓN
+───────────────────────────────────────────── */
+
+// Soporte HiDPI (pantallas Retina)
+(function setupHiDPI() {
+  const dpr = window.devicePixelRatio || 1;
+  if (dpr > 1) {
+    const w = canvas.width, h = canvas.height;
+    canvas.width  = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width  = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.scale(dpr, dpr);
+  }
+})();
+
+// Arrancar
+requestAnimationFrame(function(ts) {
+  SIM.frameTime = ts;
+  TELEMETRY.update();
+  requestAnimationFrame(gameLoop);
+});
+
+updateParams();
+addLog('HydroSim Pro v2.0 listo — 6 bombas');
+addLog('Bomba centrífuga cargada');
+
+</script>
 </body>
 </html>
