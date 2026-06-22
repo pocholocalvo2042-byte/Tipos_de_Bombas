@@ -1,32 +1,74 @@
 // /js/main.js
 import { Centrifuga } from '../bombas/Centrifuga.js';
+import { Piston } from '../bombas/Piston.js';
 
 const canvas = document.getElementById('simCanvas');
 const ctx = canvas.getContext('2d');
+const container = document.getElementById('canvasContainer');
 
-// Ajustar el canvas al tamaño de la pantalla
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+// Referencias a la UI
+const pumpSelector = document.getElementById('pumpSelector');
+const rpmSlider = document.getElementById('rpmSlider');
+const visSlider = document.getElementById('visSlider');
+const rpmValue = document.getElementById('rpmValue');
+const visValue = document.getElementById('visValue');
 
-// Instanciar la bomba centrífuga
-const bombaActiva = new Centrifuga(canvas.width, canvas.height);
+// Mantiene el canvas ajustado al espacio sobrante del panel lateral
+function resizeCanvas() {
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    
+    // Recalcular el centro para todas las bombas instanciadas
+    Object.values(bombas).forEach(bomba => {
+        bomba.cx = canvas.width / 2;
+        bomba.cy = canvas.height / 2;
+    });
+}
+window.addEventListener('resize', resizeCanvas);
 
+// Instanciar todas las bombas disponibles
+const bombas = {
+    centrifugal: new Centrifuga(100, 100), // Tamaño inicial falso, resizeCanvas lo corrige abajo
+    piston: new Piston(100, 100)
+};
+
+// Ajustar tamaño real
+resizeCanvas();
+
+// Estado inicial
+let bombaActiva = bombas['centrifugal'];
 let time = 0;
 
-// El bucle de animación
+// Listeners: Cuando el usuario interactúa con la página
+pumpSelector.addEventListener('change', (e) => {
+    bombaActiva = bombas[e.target.value];
+    bombaActiva.particles = []; // Limpiar las partículas del agua de la bomba anterior
+});
+
+rpmSlider.addEventListener('input', (e) => {
+    rpmValue.innerText = e.target.value;
+});
+
+visSlider.addEventListener('input', (e) => {
+    visValue.innerText = e.target.value;
+});
+
+// Bucle de Animación
 function animate() {
-    // 1. Limpiar el canvas en cada fotograma (Color fondo oscuro)
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     time++;
     
-    // 2. Renderizar la bomba (pasando RPM=1500 y Viscosidad=10)
-    bombaActiva.render(ctx, time, 1500, 10);
+    // Leer valores de la UI en este fotograma exacto
+    const rpm = parseInt(rpmSlider.value);
+    const viscosity = parseInt(visSlider.value);
+
+    // Renderizar la bomba que esté seleccionada
+    bombaActiva.render(ctx, time, rpm, viscosity);
     
-    // 3. Repetir infinitamente
     requestAnimationFrame(animate);
 }
 
-// Iniciar simulador
+// Arrancar simulación
 animate();
