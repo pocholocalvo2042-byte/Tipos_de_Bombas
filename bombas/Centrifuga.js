@@ -3,196 +3,217 @@ import { PumpBase, Particle } from './PumpBase.js';
 
 export class Centrifuga extends PumpBase {
 
+    // ============================================================
+    // UTILIDADES DE COLOR (interpolación lineal RGB)
+    // ============================================================
+    _lerpColor(c1, c2, t) {
+        const k = Math.max(0, Math.min(1, t));
+        const r = Math.round(c1[0] + (c2[0] - c1[0]) * k);
+        const g = Math.round(c1[1] + (c2[1] - c1[1]) * k);
+        const b = Math.round(c1[2] + (c2[2] - c1[2]) * k);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // Ojo del rodete (cian brillante) -> borde del rodete (azul intenso)
+    _colorRodete(t) {
+        return this._lerpColor([125, 244, 246], [37, 99, 235], t);
+    }
+
+    // Entrada del conducto (azul intenso) -> salida a presión (azul profundo)
+    _colorDescarga(t) {
+        return this._lerpColor([59, 130, 246], [15, 32, 75], t);
+    }
+
     generateFluid(rpm, viscosity, time) {
         // FÍSICA DE VISCOSIDAD: Mayor viscosidad = menor velocidad y fluido más espeso
         const visFactor = 20 / (viscosity + 10);
         const speedBase = (rpm / 500) * visFactor;
-
-        // Tamaño reactivo a viscosidad con más rango dinámico
-        const particleSizeBase = 1.5 + (viscosity / 18);
+        const particleSizeBase = 2 + (viscosity / 25); // Más viscoso = partículas más gordas
 
         if (rpm > 0) {
+            // Generar partículas afectadas por la velocidad (RPM)
             let limit = Math.floor((rpm / 500) * 2);
             for (let i = 0; i < limit + 1; i++) {
                 let angle = Math.random() * Math.PI * 2;
 
-                // Efecto 1: Rodete — salen del centro con leve dispersión turbulenta
+                // --- Efecto 1: Rodete ---
+                // Nacen en el "ojo" (centro) del impulsor y son arrastradas
+                // radialmente por los álabes curvados hacia atrás: además del
+                // empuje radial reciben una componente tangencial (la estela
+                // que deja un álabe "backward-curved" al girar).
+                const r0 = 6 + Math.random() * 6; // muy cerca del ojo del rodete
+                const radial = speedBase * (0.9 + Math.random() * 0.3);
+                const tangential = speedBase * 0.55;
+
+                const vxR = Math.cos(angle) * radial - Math.sin(angle) * tangential + (Math.random() - 0.5) * 0.4;
+                const vyR = Math.sin(angle) * radial + Math.cos(angle) * tangential + (Math.random() - 0.5) * 0.4;
+
                 let p_rodete = new Particle(
-                    this.cx + Math.cos(angle) * 15,
-                    this.cy + Math.sin(angle) * 15,
-                    Math.cos(angle) * speedBase + (Math.random() - 0.5) * 0.8,
-                    Math.sin(angle) * speedBase + (Math.random() - 0.5) * 0.8,
-                    particleSizeBase + Math.random() * 1.2  // variación por partícula
+                    this.cx + Math.cos(angle) * r0,
+                    this.cy + Math.sin(angle) * r0,
+                    vxR,
+                    vyR,
+                    particleSizeBase,
+                    this._colorRodete(Math.random()) // color: cian (ojo) -> azul (borde)
                 );
+                // Compatibilidad: si la clase Particle no acepta color por
+                // constructor, lo fijamos igualmente como propiedad.
+                p_rodete.color = p_rodete.color || this._colorRodete(Math.random());
 
-                // Variación sutil de color azul-cian para dar volumen al agua
-                p_rodete._hue = 195 + Math.floor(Math.random() * 20);   // 195–215
-                p_rodete._sat = 75 + Math.floor(Math.random() * 20);     // 75–95%
-                p_rodete._lit = 55 + Math.floor(Math.random() * 20);     // 55–75%
-
-                // Efecto 2: Conducto de descarga — alta presión, poca dispersión
+                // --- Efecto 2: Conducto de descarga ---
+                // Avanzan a presión por el tubo superior derecho; cuanto más
+                // cerca de la salida, más oscuro/intenso es el azul.
+                const travel = Math.random(); // 0 = entrada del tubo, 1 = boca de salida
                 let p_descarga = new Particle(
-                    this.cx + Math.random() * 50,
-                    this.cy - 75 + (Math.random() * 16 - 8),
-                    speedBase * 2.2,
-                    (Math.random() - 0.5) * 0.15,
-                    particleSizeBase * 0.9
+                    this.cx + travel * 250,
+                    this.cy - 75 + (Math.random() * 20 - 10), // Ubicadas en el tubo superior
+                    speedBase * (2 + travel * 0.35), // Alta velocidad horizontal hacia la derecha
+                    (Math.random() - 0.5) * 0.2, // Poca dispersión vertical
+                    particleSizeBase * (1 - travel * 0.15),
+                    this._colorDescarga(travel)
                 );
-                p_descarga._hue = 200 + Math.floor(Math.random() * 15);
-                p_descarga._sat = 85 + Math.floor(Math.random() * 10);
-                p_descarga._lit = 60 + Math.floor(Math.random() * 15);
+                p_descarga.color = p_descarga.color || this._colorDescarga(travel);
 
                 this.particles.push(p_rodete, p_descarga);
             }
         }
     }
 
-    // Sobrescribe draw de partículas para usar color HSL variable
-    drawFluid(ctx) {
-        for (let p of this.particles) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            const h = p._hue  ?? 205;
-            const s = p._sat  ?? 85;
-            const l = p._lit  ?? 65;
-            ctx.fillStyle = `hsla(${h}, ${s}%, ${l}%, ${p.alpha * p.life})`;
-            ctx.fill();
-        }
-    }
-
     drawMechanism(ctx, time, rpm) {
         ctx.save();
 
-        // ─── HELPERS DE GRADIENTE ────────────────────────────────────────────────
+        // ============================================================
+        // 1. VOLUTA (CARCASA) — espiral de Arquímedes en acero/hierro fundido
+        // ============================================================
+        ctx.save();
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 16;
+        ctx.shadowOffsetY = 6;
 
-        /** Gradiente metálico para tuberías horizontales */
-        const pipeGradH = (x0, y0, x1, y1) => {
-            const g = ctx.createLinearGradient(x0, y0, x1, y1);
-            g.addColorStop(0.00, '#1e293b');
-            g.addColorStop(0.25, '#475569');
-            g.addColorStop(0.50, '#94a3b8');  // brillo central
-            g.addColorStop(0.75, '#334155');
-            g.addColorStop(1.00, '#0f172a');
-            return g;
-        };
+        const turns = 1.5;   // vueltas antes de abrirse hacia el tubo de descarga
+        const rStart = 30;   // radio interno, junto al ojo del rodete
+        const rEnd = 100;    // radio donde la voluta se abre hacia la descarga
+        const steps = 90;
 
-        /** Gradiente metálico radial para piezas circulares */
-        const radialMetal = (cx, cy, r0, r1) => {
-            const g = ctx.createRadialGradient(cx - r1 * 0.3, cy - r1 * 0.3, r0, cx, cy, r1);
-            g.addColorStop(0.0,  '#94a3b8');
-            g.addColorStop(0.4,  '#475569');
-            g.addColorStop(0.75, '#1e293b');
-            g.addColorStop(1.0,  '#0f172a');
-            return g;
-        };
-
-        // ─── 1. TUBO DE DESCARGA (horizontal, hacia la derecha) ────────────────
-
-        // Sombra del tubo
-        ctx.shadowColor   = 'rgba(0,0,0,0.55)';
-        ctx.shadowBlur    = 12;
-        ctx.shadowOffsetY = 4;
-
-        ctx.lineWidth   = 20;
-        ctx.lineCap     = 'round';
-        ctx.strokeStyle = pipeGradH(this.cx, this.cy - 82, this.cx, this.cy - 68);
+        // Borde exterior (creciente) ...
         ctx.beginPath();
-        ctx.moveTo(this.cx, this.cy - 75);
-        ctx.lineTo(this.cx + 250, this.cy - 75);
-        ctx.stroke();
+        for (let i = 0; i <= steps; i++) {
+            const t = i / steps;
+            const ang = -Math.PI * 0.5 + t * Math.PI * 2 * turns;
+            const rOuter = rStart + (rEnd - rStart) * t + 13;
+            const x = this.cx + Math.cos(ang) * rOuter;
+            const y = this.cy + Math.sin(ang) * rOuter;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        // ... y borde interior (decreciente) para cerrar la banda de la voluta
+        for (let i = steps; i >= 0; i--) {
+            const t = i / steps;
+            const ang = -Math.PI * 0.5 + t * Math.PI * 2 * turns;
+            const rInner = rStart + (rEnd - rStart) * t - 9;
+            const x = this.cx + Math.cos(ang) * rInner;
+            const y = this.cy + Math.sin(ang) * rInner;
+            ctx.lineTo(x, y);
+        }
+        ctx.closePath();
 
-        // Línea especular (brillo)
-        ctx.shadowBlur  = 0;
-        ctx.lineWidth   = 2;
-        ctx.strokeStyle = 'rgba(203,213,225,0.35)';
-        ctx.beginPath();
-        ctx.moveTo(this.cx + 4, this.cy - 80);
-        ctx.lineTo(this.cx + 245, this.cy - 80);
-        ctx.stroke();
-
-        // ─── 2. VOLUTA (carcasa exterior) ──────────────────────────────────────
-
-        ctx.shadowColor   = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur    = 18;
-        ctx.shadowOffsetX = 3;
-        ctx.shadowOffsetY = 5;
-
-        // Relleno de la carcasa
-        ctx.beginPath();
-        ctx.arc(this.cx, this.cy, 96, 0, Math.PI * 2);
-        ctx.fillStyle = radialMetal(this.cx, this.cy, 10, 96);
+        const voluteGrad = ctx.createLinearGradient(this.cx - rEnd, this.cy - rEnd, this.cx + rEnd, this.cy + rEnd);
+        voluteGrad.addColorStop(0, '#cbd5e1');
+        voluteGrad.addColorStop(0.25, '#64748b');
+        voluteGrad.addColorStop(0.5, '#334155');
+        voluteGrad.addColorStop(0.75, '#475569');
+        voluteGrad.addColorStop(1, '#94a3b8');
+        ctx.fillStyle = voluteGrad;
         ctx.fill();
 
-        // Borde exterior de la voluta
-        ctx.lineWidth   = 12;
-        ctx.strokeStyle = '#334155';
-        ctx.beginPath();
-        ctx.arc(this.cx, this.cy, 90, 0, Math.PI * 1.5);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#1e293b';
         ctx.stroke();
+        ctx.restore();
 
-        // Anillo interior (profundidad)
-        ctx.shadowBlur  = 0;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-        ctx.lineWidth   = 3;
-        ctx.strokeStyle = 'rgba(148,163,184,0.2)';
+        // Brillo especular (sensación de metal pulido)
+        ctx.save();
+        ctx.globalAlpha = 0.4;
+        const sheen = ctx.createLinearGradient(this.cx - rEnd, this.cy - rEnd, this.cx, this.cy);
+        sheen.addColorStop(0, 'rgba(255,255,255,0.65)');
+        sheen.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.beginPath();
-        ctx.arc(this.cx, this.cy, 78, 0, Math.PI * 2);
+        ctx.arc(this.cx, this.cy, rEnd + 8, Math.PI * 1.05, Math.PI * 1.75);
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = sheen;
         ctx.stroke();
+        ctx.restore();
 
-        // ─── 3. RODETE GIRATORIO ───────────────────────────────────────────────
+        // ============================================================
+        // 2. TUBO DE DESCARGA — cilindro con sombreado 3D
+        // ============================================================
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.4)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 4;
+        const pipeGrad = ctx.createLinearGradient(0, this.cy - 75 - 14, 0, this.cy - 75 + 14);
+        pipeGrad.addColorStop(0, '#cbd5e1');
+        pipeGrad.addColorStop(0.45, '#475569');
+        pipeGrad.addColorStop(0.55, '#1e293b');
+        pipeGrad.addColorStop(1, '#94a3b8');
+        ctx.strokeStyle = pipeGrad;
+        ctx.lineWidth = 16;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this.cx + 8, this.cy - 75);
+        ctx.lineTo(this.cx + 250, this.cy - 75);
+        ctx.stroke();
+        ctx.restore();
 
+        // ============================================================
+        // 3. RODETE GIRATORIO — álabes curvados hacia atrás (backward-curved)
+        // ============================================================
+        ctx.save();
         ctx.translate(this.cx, this.cy);
-        ctx.rotate(time * rpm * 0.005);
+        ctx.rotate(time * rpm * 0.005); // El metal siempre gira a los RPM reales
 
-        // Álabes con gradiente metálico individual
-        for (let i = 0; i < 6; i++) {
+        const bladeCount = 6;
+        for (let i = 0; i < bladeCount; i++) {
             ctx.save();
-            ctx.rotate((Math.PI / 3) * i);
+            ctx.rotate((Math.PI * 2 / bladeCount) * i);
 
-            // Gradiente por álabe (de base oscura a punta brillante)
-            const bladeGrad = ctx.createLinearGradient(0, 0, 62, 0);
-            bladeGrad.addColorStop(0.0, '#1e293b');
+            // Sombra de profundidad bajo el álabe
+            ctx.beginPath();
+            ctx.moveTo(2, 2);
+            ctx.quadraticCurveTo(26, 10, 58, -14);
+            ctx.lineWidth = 9;
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.stroke();
+
+            // Álabe curvado hacia atrás respecto al sentido de giro, con gradiente metálico
+            const bladeGrad = ctx.createLinearGradient(0, 0, 60, -16);
+            bladeGrad.addColorStop(0, '#f1f5f9');
             bladeGrad.addColorStop(0.5, '#94a3b8');
-            bladeGrad.addColorStop(1.0, '#475569');
-
-            ctx.lineWidth   = 5;
-            ctx.strokeStyle = bladeGrad;
-            ctx.shadowColor = 'rgba(0,0,0,0.4)';
-            ctx.shadowBlur  = 6;
-
+            bladeGrad.addColorStop(1, '#475569');
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.quadraticCurveTo(20, 40, 62, 0);
+            ctx.quadraticCurveTo(24, 6, 60, -16);
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = bladeGrad;
             ctx.stroke();
 
             ctx.restore();
         }
 
-        // Hub central (disco de fijación del rodete)
-        ctx.shadowBlur  = 10;
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-
+        // Eje central / ojo del impulsor con relieve 3D
+        const hubGrad = ctx.createRadialGradient(-5, -5, 2, 0, 0, 16);
+        hubGrad.addColorStop(0, '#f1f5f9');
+        hubGrad.addColorStop(0.55, '#475569');
+        hubGrad.addColorStop(1, '#0f172a');
         ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.fillStyle = radialMetal(0, 0, 0, 17);
+        ctx.arc(0, 0, 15, 0, Math.PI * 2);
+        ctx.fillStyle = hubGrad;
         ctx.fill();
-
-        // Eje (orificio de succión axial)
-        ctx.beginPath();
-        ctx.arc(0, 0, 9, 0, Math.PI * 2);
-        ctx.fillStyle = '#020617';
-        ctx.fill();
-
-        // Anillo cromado del eje
-        ctx.lineWidth   = 2.5;
-        ctx.strokeStyle = '#94a3b8';
-        ctx.shadowBlur  = 4;
-        ctx.shadowColor = 'rgba(148,163,184,0.5)';
-        ctx.beginPath();
-        ctx.arc(0, 0, 9, 0, Math.PI * 2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#cbd5e1';
         ctx.stroke();
 
-        ctx.restore();
+        ctx.restore(); // deshace translate/rotate del rodete
+        ctx.restore(); // restore final del método
     }
 }
