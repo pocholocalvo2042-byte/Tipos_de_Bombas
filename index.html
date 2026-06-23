@@ -1017,66 +1017,55 @@ const PISTON = {
 };
 
 /* ─────────────────────────────────────────────
-   3C. BOMBA DE ENGRANAJES  (mejorada v2)
-   Mejoras:
-   - Dientes más definidos (toothH 14, tw 0.28)
-   - Highlights en la cara de cada diente
-   - Partículas confinadas al borde exterior de la carcasa
-   - Zona de engrane central bloqueada (fluido NO pasa por el centro)
+   3C. BOMBA DE ENGRANAJES  (CORREGIDA: Apilamiento Vertical)
 ───────────────────────────────────────────── */
 
 const GEAR = {
   gearR:      70,
   numTeeth:   12,
-  toothH:     14,   // v2: +2px para dientes más definidos
+  toothH:     14,
   centerDist: 72,
 
-  get g1x() { return CX - this.centerDist; },
-  get g1y() { return CY; },
-  get g2x() { return CX + this.centerDist; },
-  get g2y() { return CY; },
+  // ¡AQUÍ ESTÁ EL CAMBIO! Posiciones verticales
+  get g1x() { return CX; },
+  get g1y() { return CY - this.centerDist; }, // Engranaje superior
+  get g2x() { return CX; },
+  get g2y() { return CY + this.centerDist; }, // Engranaje inferior
 
-  // Pre-compute housing bounds (used in updatePhysics)
+  // La carcasa ahora es más alta que ancha
   housingBounds() {
     return {
-      left:   this.g1x - this.gearR - this.toothH - 12,
-      right:  this.g2x + this.gearR + this.toothH + 12,
-      top:    CY - this.gearR - this.toothH - 14,
-      bottom: CY + this.gearR + this.toothH + 14,
+      left:   CX - this.gearR - this.toothH - 14,
+      right:  CX + this.gearR + this.toothH + 14,
+      top:    this.g1y - this.gearR - this.toothH - 12,
+      bottom: this.g2y + this.gearR + this.toothH + 12,
     };
   },
 
   emitParticles() {
     if (!SIM.running || particles.length >= MAX_PARTICLES) return;
     const sf = SIM.rpm / 1500;
+    const hb = this.housingBounds();
 
-    // Emite partículas por el camino SUPERIOR (sobre g1)
-    if (Math.random() < 0.3 * sf) {
+    // Succión: entra horizontalmente por la izquierda al centro
+    if (Math.random() < 0.6 * sf) {
       particles.push(createParticle(
-        this.g1x - this.gearR - 5,
-        CY - 25 - Math.random() * 35,
-        0.9 * sf, -0.15 * sf, 'suction'
+        hb.left - 5,
+        CY + (Math.random() - 0.5) * 30,
+        1.2 * sf, (Math.random() - 0.5) * 0.2, 'suction'
       ));
     }
-    // Emite partículas por el camino INFERIOR (bajo g2)
-    if (Math.random() < 0.3 * sf) {
-      particles.push(createParticle(
-        this.g1x - this.gearR - 5,
-        CY + 25 + Math.random() * 35,
-        0.9 * sf, 0.15 * sf, 'suction'
-      ));
-    }
-    // Descarga: lado derecho
+    // Descarga: aparece ocasionalmente en la derecha para simular expulsión
     if (Math.random() < 0.35 * sf) {
       particles.push(createParticle(
-        this.g2x + this.gearR + 5,
-        CY + (Math.random() - 0.5) * 50,
+        hb.right + 5,
+        CY + (Math.random() - 0.5) * 30,
         2.5 * sf, (Math.random() - 0.5) * 0.2, 'discharge'
       ));
     }
   },
 
-  updatePhysics(dt) {
+    updatePhysics(dt) {
     const omega = (SIM.rpm * 2 * Math.PI) / 60;
     const sf    = SIM.rpm / 1500;
     const hb    = this.housingBounds();
@@ -1087,60 +1076,70 @@ const GEAR = {
       const dx2 = p.x - this.g2x, dy2 = p.y - this.g2y;
       const r2  = Math.sqrt(dx2*dx2 + dy2*dy2);
 
+      // Engranaje superior (g1) gira HORARIO.
       if (r1 < this.gearR + 22 && r1 > this.gearR - 10) {
-        const tgX = dy1 / r1, tgY = -dx1 / r1;  // g1 gira antihorario
+        const tgX = -dy1 / r1, tgY = dx1 / r1;
         p.vx += tgX * omega * 0.0012 * sf;
         p.vy += tgY * omega * 0.0012 * sf;
         p.zone = 'chamber';
       }
+      // Engranaje inferior (g2) gira ANTI-HORARIO.
       if (r2 < this.gearR + 22 && r2 > this.gearR - 10) {
-        const tgX = -dy2 / r2, tgY = dx2 / r2;  // g2 gira horario
+        const tgX = dy2 / r2, tgY = -dx2 / r2;
         p.vx += tgX * omega * 0.0012 * sf;
         p.vy += tgY * omega * 0.0012 * sf;
         p.zone = 'chamber';
       }
 
-      // ── ZONA DE ENGRANE BLOQUEADA ──
-      // El fluido NO puede atravesar el centro donde los dientes se cruzan.
-      // Bloqueo en la franja central X ≈ [CX-16, CX+16]
-      const meshHalfW = 16;
-      if (Math.abs(p.x - CX) < meshHalfW && Math.abs(p.y - CY) < this.gearR) {
-        // Expulsar hacia arriba o abajo según posición
+      // ── BARRERA CENTRAL ESTRICTA ──
+      // Impide que el agua cruce por el centro de los engranajes
+      if (Math.abs(p.x - CX) < 40 && p.y > this.g1y && p.y < this.g2y) {
         const pushDir = (p.y < CY) ? -1 : 1;
-        p.vy += pushDir * 1.0 * sf;
-        // Teletransportar fuera de la zona de colisión
-        p.y = CY + pushDir * (this.gearR + 5);
-        p.zone = 'chamber';
+        p.vy += pushDir * 3.0 * sf; 
+        if (p.x < CX) { p.x = CX - 40; p.vx = -1; } 
+        else          { p.x = CX + 40; p.vx = 1; }
       }
 
-      // ── CONFINAMIENTO A LA CARCASA ──
-      // Las partículas no salen del housing; rebotan contra las paredes
-      if (p.y < hb.top + 6)    p.vy += 0.5 * sf;
-      if (p.y > hb.bottom - 6) p.vy -= 0.5 * sf;
-      if (p.x < hb.left + 4)   p.vx += 0.3 * sf;
-      if (p.x > hb.right - 4)  p.vx -= 0.1;
+      // ── NUEVO: CONFINAMIENTO Y SALIDA INTELIGENTE ──
+      // Techo y piso de la carcasa (Siempre rebotan)
+      if (p.y < hb.top + 6)     p.vy += 0.4 * sf;
+      if (p.y > hb.bottom - 6)  p.vy -= 0.4 * sf;
 
-      // Clasificar zonas de presión
-      if (p.x < this.g1x)      p.zone = 'suction';
-      else if (p.x > this.g2x) p.zone = 'discharge';
+      // Pared izquierda (Rebotan a menos que estén en el tubo de entrada)
+      if (p.x < hb.left + 6 && Math.abs(p.y - CY) > 15) p.vx += 0.4 * sf;
+
+      // Lado derecho (Descarga)
+      if (p.x > CX + 20) {
+        // 1. Guiar el fluido hacia el embudo del tubo de salida (Centro Y)
+        if (p.y < CY - 12) p.vy += 0.25 * sf;
+        if (p.y > CY + 12) p.vy -= 0.25 * sf;
+        
+        // 2. Darles un empujón constante hacia la derecha para expulsarlas
+        p.vx += 0.15 * sf;
+
+        // 3. Pared derecha: Solo rebotan si chocan contra el metal, NO contra el agujero del tubo
+        if (p.x > hb.right - 6 && Math.abs(p.y - CY) > 15) {
+            p.vx -= 0.4 * sf;
+        }
+      }
+
+      // Colorear zonas de presión visual
+      if (p.x < CX - 30)      p.zone = 'suction';
+      else if (p.x > CX + 30) p.zone = 'discharge';
     }
   },
 
-  /**
-   * Dibuja un engranaje con perfil trapezoidal mejorado.
-   * tw=0.28 → dientes más estrechos y mejor definidos.
-   * Highlights en la cara frontal de cada diente.
-   */
   drawGear(cx, cy, angle, clockwise) {
     const R  = this.gearR;
-    const Rt = R + this.toothH;          // cresta
-    const Rr = R - this.toothH * 0.55;  // raíz
+    const Rt = R + this.toothH;
+    const Rr = R - this.toothH * 0.55;
     const n  = this.numTeeth;
     const aStep = (Math.PI * 2) / n;
-    const tw = 0.28;   // v2: 0.35 → 0.28 (dientes más definidos)
+    const tw = 0.28;
 
     ctx.save();
     ctx.translate(cx, cy);
+    // Controlamos el sentido de giro visual
     ctx.rotate(clockwise ? angle : -angle);
 
     const gearGrad = ctx.createRadialGradient(0, 0, Rr * 0.3, 0, 0, R);
@@ -1148,7 +1147,6 @@ const GEAR = {
     gearGrad.addColorStop(0.6, '#1e3a6e');
     gearGrad.addColorStop(1,   '#2a5298');
 
-    // Cuerpo del engranaje
     ctx.beginPath();
     for (let i = 0; i < n; i++) {
       const a = i * aStep;
@@ -1165,21 +1163,17 @@ const GEAR = {
     ctx.fill();
     ctx.stroke();
 
-    // ── v2: Highlights en caras de dientes ──
-    // La cara "frontal" de cada diente (flanco de ataque) recibe un trazo claro
     for (let i = 0; i < n; i++) {
       const a = i * aStep;
       ctx.beginPath();
       ctx.moveTo(Math.cos(a - tw) * R,  Math.sin(a - tw) * R);
       ctx.lineTo(Math.cos(a - tw * 0.65) * Rt, Math.sin(a - tw * 0.65) * Rt);
-      // Cresta del diente
       ctx.lineTo(Math.cos(a + tw * 0.65) * Rt, Math.sin(a + tw * 0.65) * Rt);
       ctx.strokeStyle = 'rgba(120, 200, 255, 0.50)';
       ctx.lineWidth   = 1.5;
       ctx.stroke();
     }
 
-    // Radios del cubo
     for (let i = 0; i < 6; i++) {
       const ra = (i / 6) * Math.PI * 2;
       ctx.beginPath();
@@ -1207,11 +1201,13 @@ const GEAR = {
     ctx.fillRect(hx, hy, hw, hh);
     ctx.strokeRect(hx, hy, hw, hh);
 
+    // Gradiente de presión ajustado a la nueva geometría
     if (SIM.showPressure) {
       const gradL = ctx.createLinearGradient(hx, CY, CX, CY);
       gradL.addColorStop(0, 'rgba(30,50,200,0.2)');
       gradL.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradL; ctx.fillRect(hx, hy, hw / 2, hh);
+      
       const gradR = ctx.createLinearGradient(CX, CY, hx + hw, CY);
       gradR.addColorStop(0, 'rgba(0,0,0,0)');
       gradR.addColorStop(1, 'rgba(0,200,220,0.25)');
@@ -1219,50 +1215,50 @@ const GEAR = {
     }
     ctx.restore();
 
-    // Indicador zona de engrane (cruza fluido NO pasa)
+    // Línea divisoria de la zona bloqueada (ahora horizontal central)
     ctx.save();
     ctx.setLineDash([3, 5]);
     ctx.strokeStyle = 'rgba(255,100,100,0.25)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(CX, hy + 4); ctx.lineTo(CX, hy + hh - 4);
+    ctx.moveTo(hx + 4, CY); ctx.lineTo(hx + hw - 4, CY);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.restore();
 
-    this.drawGear(this.g1x, this.g1y, SIM.gear1Angle, false);
-    this.drawGear(this.g2x, this.g2y, SIM.gear2Angle, true);
+    // Engranaje superior (g1) gira HORARIO (true)
+    this.drawGear(this.g1x, this.g1y, SIM.gear1Angle, true);
+    // Engranaje inferior (g2) gira ANTI-HORARIO (false)
+    this.drawGear(this.g2x, this.g2y, SIM.gear2Angle, false);
 
     this.drawPipes();
     if (SIM.showLabels) this.drawLabels();
   },
 
   drawPipes() {
+    const hb = this.housingBounds();
     ctx.save();
     ctx.lineWidth = 22; ctx.lineCap = 'square'; ctx.strokeStyle = '#1a3a5c';
-    ctx.beginPath();
-    ctx.moveTo(10, CY); ctx.lineTo(this.g1x - this.gearR - 10, CY); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(this.g2x + this.gearR + 10, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, CY); ctx.lineTo(hb.left, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hb.right, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
+    
     ctx.lineWidth = 14; ctx.strokeStyle = '#0d2033';
-    ctx.beginPath();
-    ctx.moveTo(10, CY); ctx.lineTo(this.g1x - this.gearR - 10, CY); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(this.g2x + this.gearR + 10, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(10, CY); ctx.lineTo(hb.left, CY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hb.right, CY); ctx.lineTo(canvas.width - 10, CY); ctx.stroke();
     ctx.restore();
-    drawArrow(30, CY, 100, CY, '#1e90ff', 'SUCCIÓN');
-    drawArrow(canvas.width - 100, CY, canvas.width - 30, CY, '#00ffee', 'DESCARGA');
+    
+    drawArrow(20, CY, hb.left - 10, CY, '#1e90ff', 'SUCCIÓN');
+    drawArrow(hb.right + 10, CY, canvas.width - 20, CY, '#00ffee', 'DESCARGA');
   },
 
   drawLabels() {
     const hb = this.housingBounds();
-    labelText('Dientes\nseparándose\n→ ↓ P',  this.g1x - 25,  hb.top - 35, '#88ccff');
-    labelText('Dientes\njuntándose\n→ ↑ P',   this.g2x - 15,  hb.top - 35, '#ffcc44');
-    labelText('Fluido\natrapado\nentre dientes', CX - 40, hb.bottom + 8, '#88ccff');
-    labelText('⊗ Zona bloqueada\n(no hay flujo)', CX - 42, CY - 20, 'rgba(255,100,100,0.7)');
+    labelText('Dientes\nseparándose\n(Succión)',  hb.left - 50, CY - 20, '#88ccff');
+    labelText('Dientes\njuntándose\n(Presión)',   hb.right + 5,  CY - 20, '#ffcc44');
+    labelText('Fluido viaja\npor periferia',      CX - 40,      hb.top - 20, '#88ccff');
+    labelText('⊗ Zona bloqueada',                 CX - 45,      CY + 15, 'rgba(255,100,100,0.7)');
   },
 };
-
 /* ─────────────────────────────────────────────
    3D. BOMBA DE FLUJO AXIAL  (NUEVA)
    Física: fluido se mueve PARALELAMENTE al eje de
@@ -1477,7 +1473,6 @@ const AXIAL = {
     ctx.restore();
   },
 };
-
 /* ─────────────────────────────────────────────
    3E. BOMBA DE FLUJO MIXTO  (NUEVA)
    Física: combina características axiales y
@@ -1527,20 +1522,29 @@ const MIXED = {
     }
   },
 
-  updatePhysics(dt) {
+    updatePhysics(dt) {
     const omega = (SIM.rpm * 2 * Math.PI) / 60;
     const sf    = SIM.rpm / 1500;
     const hcx   = this.hcx, hcy = this.hcy;
-    const nx    = Math.cos(this.outletAngle);
-    const ny    = Math.sin(this.outletAngle);
+    const nx    = Math.cos(this.outletAngle); // Vector X de la diagonal
+    const ny    = Math.sin(this.outletAngle); // Vector Y de la diagonal
 
     for (const p of particles) {
       const dx = p.x - hcx;
       const dy = p.y - hcy;
       const r  = Math.sqrt(dx*dx + dy*dy);
 
-      if (r < this.volutaR && r > 5) {
-        // Zona del rodete: centrífuga + axial mezclados
+      // 1. ZONA DE SUCCIÓN (Tubo izquierdo de entrada)
+      // Si la partícula está antes del rodete, obligarla a ir recto
+      if (p.x < hcx - 50) {
+        p.vy *= 0.7; // Amortiguar cualquier salto vertical
+        p.vx += 0.06 * sf; // Succionar recto hacia la derecha
+        p.zone = 'suction';
+      }
+      
+      // 2. ZONA INTERNA (Rodete y Voluta)
+      else if (r < this.volutaR) {
+        // Física centrífuga + tangencial combinada
         const rnx = dx / r, rny = dy / r;
         const tx  = -rny, ty = rnx;
 
@@ -1550,20 +1554,29 @@ const MIXED = {
         p.vx += (rnx * radAcc + tx * tangAcc) * dt * sf;
         p.vy += (rny * radAcc + ty * tangAcc) * dt * sf;
 
-        // Sesgo hacia la salida diagonal
+        // Pequeño sesgo para guiar el flujo hacia arriba/derecha
         p.vx += nx * 0.025 * sf;
         p.vy += ny * 0.025 * sf;
 
+        // Colorear según presión
         if (r < 28)       p.zone = 'suction';
         else if (r < 60)  p.zone = 'chamber';
         else               p.zone = 'discharge';
-
-      } else if (r >= this.volutaR) {
-        // Voluta → guiar hacia salida diagonal
-        p.vx += nx * 0.055 * sf;
-        p.vy += ny * 0.055 * sf;
-        p.vx *= 0.97; p.vy *= 0.97;
-        p.zone = 'discharge';
+      }
+      
+      // 3. ZONA DE DESCARGA (Tubo diagonal)
+      else {
+        // Solo aplicar la fuerza diagonal intensa si la partícula ya pasó el centro
+        if (p.x > hcx - 20) {
+          p.vx += nx * 0.06 * sf;
+          p.vy += ny * 0.06 * sf;
+          
+          // Fricción del tubo de salida para que no aceleren infinitamente
+          p.vx *= 0.96; 
+          p.vy *= 0.96;
+          
+          p.zone = 'discharge';
+        }
       }
     }
   },
